@@ -1,0 +1,65 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+Created on Mon Aug 30 12:30:51 2021
+
+@author: hagen
+"""
+
+from ceilopy import ceilolab as cl
+# import smtplib
+# from email.mime.text import MIMEText
+# import pandas as pd
+# import datetime
+# import numpy as np
+# import traceback
+
+assert(cl.load_config().get('notify', 'email_address') != 'None'), 'No email has been specified, please do so in ~/.ceilopy/config.ini'
+
+clp = cl.Cl51CloudProdProcessor()
+clp.process(generate_missing_folders=True, error_handling='return')
+clp.notify()
+
+# messages.append('run finshed {}'.format(pd.Timestamp(datetime.datetime.now())))
+
+# #### summary
+# no_of_errors = len(out['errors'])
+# no_of_files_processed = out['no_of_files_processed']
+    
+# messages.append('\n'.join([f'length of workplan:\t\t{clp.workplan.shape[0]}',f'successfully created files:\t{no_of_files_processed}', f'errors encountered:\t\t{no_of_errors}']))
+
+# #### errors
+# if no_of_errors != 0:
+#     errs = out['errors']
+#     err_types = np.array([err.__class__.__name__ for err in errs])
+    
+#     typoferrors = []
+#     for toe in np.unique(err_types):
+#         typoferrors.append({'name': toe, 'times': (err_types == toe).sum(), 'first_err': errs[np.where(err_types == toe)[0][0]]})
+
+#     messages.append('\n'.join(['Errors by type:',] + ['\t{tn}:\t{tt}'.format(tn = toe['name'], tt = toe['times']) for toe in typoferrors]))
+#     messages.append('\n=============================================\n'.join(['First traceback for each error type',]+[''.join(traceback.format_tb(toe['first_err'].__traceback__) + [toe['first_err'].__str__(),]) for toe in typoferrors]))
+
+# #### email body
+# message_txt = '\n=========================================================================\n'.join(messages)
+# msg = MIMEText(message_txt)
+
+# # me == the sender's email address
+# # you == the recipient's email address
+# address  = 'hagen.telg@noaa.gov'
+
+# #### subject
+# if no_of_errors ==0:
+#     status = 'clean'
+# else:
+#     status = 'errors'
+# subject = f'cl51cloudprod - status: {status} (clean: {no_of_files_processed}; errors: {no_of_errors})'
+
+# msg['Subject'] = subject
+# msg['From'] = address
+# msg['To'] = address
+
+# # Send the message via our own SMTP server.
+# s = smtplib.SMTP('localhost')
+# s.send_message(msg)
+# s.quit()

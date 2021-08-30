@@ -10,13 +10,13 @@ setup(
     name="ceilopy",
     version="0.1.1", #setting this caused a huge hadeache ... basically the script wasn't found when the version was set
     packages=find_packages(),
-    author="Hagen Telg",
+    author="Christian Herrera, Hagen Telg",
     author_email="hagen@hagnet.net",
     description="...",
     license="MIT",
     url="https://github.com/hagne/ceilopy",
     install_requires=['pandas', 'numpy', 'xarray'],
-    # scripts=['scripts/qcrad2ncei'],
+    scripts=['scripts/cl51cloudprod'],
     # package_data={'': ['*.cdl']},
     # include_package_data=True,
     # zip_safe=False
