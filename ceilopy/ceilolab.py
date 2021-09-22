@@ -1,16 +1,14 @@
-import xarray as xr
-import pandas as pd
-import netCDF4
-import numpy as np
-import pathlib as pl
-import traceback
-import datetime
-from email.mime.text import MIMEText
-import smtplib
-
-
+import xarray as _xr
+import pandas as _pd
+import numpy as _np
 import pathlib as _pl
+import traceback as _tb
+import datetime as _dt
+from email.mime.text import MIMEText as _MIMEText
+import smtplib as _smtplib
+import pathlib as __pl
 import configparser as _cp
+import magic as _magic
 
 
 
@@ -27,7 +25,7 @@ def generate_config(p2sf):
         raus.write(settings)
 
 def load_config():
-    p2sf = _pl.Path.home().joinpath('.ceilopy/config.ini')
+    p2sf = __pl.Path.home().joinpath('.ceilopy/config.ini')
 
     if not p2sf.is_file():
         generate_config(p2sf)
@@ -36,20 +34,41 @@ def load_config():
     config.read(p2sf)
     return config
 
+class CorruptFileError(Exception):
+    """Exception raised when File is not whats expected.
+    """
+    def __init__(self, message):
+        super().__init__(message)
+        
+class MissingSerialNumberError(Exception):
+    """Exception raised when File does not contain Serial number.
+    """
+    def __init__(self, message):
+        super().__init__(message)
+        
+class SerialNumberMissmatchError(Exception):
+    """Exception raised when Files doe not have the same serial number.
+    """
+    def __init__(self, message):
+        super().__init__(message)
 
-def read_L1(file):
-    if isinstance(file, (str, pl.Path)):
+def read_L1(file, parent = None):
+    if isinstance(file, (str, _pl.Path)):
         file = [file]
         
-    assert(isinstance(file, (pd.Series,list, np.array))), f'File type not recognized: {type(file)}'
+    assert(isinstance(file, (_pd.Series,list, _np.array))), f'File type not recognized: {type(file)}'
     
     ignore1 = ['name','message_type','version','date_stamp',
                'period','tilt_angle',
               'cloud_status','cloud_data','status_bits','profile_scale',
               'profile_resolution','profile_length']
     
-    L1 = xr.open_mfdataset(file, concat_dim = 'timeDim', drop_variables=ignore1)
-    L1 = L1.assign_coords(time = pd.to_datetime(L1.time.values, unit = 's'))
+    if not _np.all([_magic.from_file(fn.as_posix()) == 'Hierarchical Data Format (version 5) data' for fn in file]):
+        fnc = '\n\t'.join([fn.as_posix() for fn in file])
+        raise CorruptFileError(f'At least one of the following can not be identified as a netcdf file: \n\t {fnc}')
+        
+    L1 = _xr.open_mfdataset(file, concat_dim = 'timeDim', drop_variables=ignore1)
+    L1 = L1.assign_coords(time = _pd.to_datetime(L1.time.values, unit = 's'))
     for var in L1.variables:
         if 'timeDim' in L1[var].dims:
             L1[var] = L1[var].swap_dims({'timeDim':'time'})
@@ -57,36 +76,41 @@ def read_L1(file):
 
 # read hist file
 ##### Read Level3 hist files. #############################################
-def read_level3_hist(file):
+def read_level3_hist(file, parent = None):
     def read_file(fn):
         cols = ['CREATEDATE',' CEILOMETER',' CLOUD_STATUS',' CLOUD_1',' CLOUD_2',
                 ' CLOUD_3'] # What columns to keep.
-        his3 = pd.read_csv(fn, skiprows=1, header=0, sep=',',
+        his3 = _pd.read_csv(fn, skiprows=1, header=0, sep=',',
                            na_values='-9999', index_col=0, parse_dates=True,
                            infer_datetime_format=True, usecols=cols)
         his3.index.rename('time', inplace=True)  
         his3.columns = [col.strip() for col in his3.columns]
         return his3
     
-    if isinstance(file, (str, pl.Path)):
+    if isinstance(file, (str, _pl.Path)):
         file = [file]
         
-    assert(isinstance(file, (pd.Series,list, np.array))), f'File type not recognized: {type(file)}'
-    df = pd.concat([read_file(fn) for fn in file], sort = True)
-    assert(df.index.duplicated().sum() == 0), 'There are duplicates in the hist file ... I would think this should be happening. if it does un-comment the following line'
-    # df = df[~df.index.duplicated(keep='first')] # Remove duplicates
+    assert(isinstance(file, (_pd.Series,list, _np.array))), f'File type not recognized: {type(file)}'
+    df = _pd.concat([read_file(fn) for fn in file], sort = True)
+    #### testpoint
+    parent.tp_dfcc = df.copy()
+    # assert(df.index.duplicated().sum() == 0), 'There are duplicates in the hist file ... I would think this should not be happening. if it does un-comment the following line'
+    df = df[~df.index.duplicated(keep='first')] # Remove duplicates
     return df
         
 class Cl51CloudProdRetriever():
-    def __init__(self, poutg):
+    def __init__(self, poutg, 
+                 # check_serial = True,
+                 ):
         self.poutg = poutg
 #         self.p2fnout = poutg.path2fn_out.unique()[0]
         
         self._product_dataset = None
-    
-        self.check_serial()
+        self.get_serial_numbers()
+        # if check_serial:
+        #     self.check_serial()
         
-    def check_serial(self, ):
+    def get_serial_numbers(self):
         def get_serial(row):
             # Extract serial numbers from files
             key = row.file_type
@@ -96,14 +120,49 @@ class Cl51CloudProdRetriever():
             # elif key == 'L3':
             #     serial = files['L3'][-11:-3]
             elif key in ['H2','H3','hist']:
-                h = pd.read_csv(file, skiprows=1, header=0, sep=',')
+                h = _pd.read_csv(file, skiprows=1, header=0, sep=',')
                 serial = h[' CEILOMETER'][0].strip() # Extract serial number from H2 file.
             else:
                 raise KeyError('File type unknown')
             return serial
         
         self.poutg['sn'] = self.poutg.apply(get_serial, axis = 1)
-        assert(self.poutg.sn.unique().shape[0] == 1), f'Serial numbers ({self.poutg.sn.unique()}) do not match ... fix it!'
+        
+    def check_serial(self, error_handling = 'raise'):
+        """
+        Checks if the serial numbers in all the files are the same. In early 
+        measurments the serial number was not stored ... use error_handling to
+        deal with occuring errors.
+
+        Parameters
+        ----------
+        error_handling : str, optional
+            How to deal with errors. The default is 'raise'.
+            raise: raises occuring errors
+            allow_empty: do not raise an error if serial number is not available
+
+        Raises
+        ------
+        KeyError
+            DESCRIPTION.
+
+        Returns
+        -------
+        serial : TYPE
+            DESCRIPTION.
+
+        """
+        sn_series = self.poutg['sn'].copy()
+        # self.poutg['sn'] = sn_series.copy()
+        valid = ['raise', 'allow_empty']
+        assert(error_handling in valid), f'error_handling got an unexpected value ({error_handling}. Choose from: {valid})'
+        if error_handling == 'allow_empty':
+            sn_series = sn_series[sn_series.apply(lambda x: len(x)) != 0]
+        if sn_series.unique().shape[0] != 1:
+            if len(sn_series[sn_series.apply(lambda x: len(x)) != 0]) != len(sn_series):
+                fnj = '\n\t'.join([fn.as_posix() for fn in self.poutg.path2raw])
+                raise MissingSerialNumberError(f'At least one of the following files is missing a serial number:\n\t{fnj}')
+            raise SerialNumberMissmatchError(f'Serial numbers ({sn_series.unique()}) do not match')
         
     @property
     def product_dataset(self):
@@ -116,10 +175,10 @@ class Cl51CloudProdRetriever():
             assert(dfL1.index.duplicated().sum() == 0), "there are duplicates in L1's index, I would think this should be happening. if it does un-comment the following line"
             # dfL1 = dfL1[~dfL1.index.duplicated(keep='first')]
 
-            his3 = read_level3_hist(poutg[poutg.file_type == 'hist'].path2raw)
+            his3 = read_level3_hist(poutg[poutg.file_type == 'hist'].path2raw, parent = self)
 
-            ##### Clean and Resample to 36s ###########################################    
-            # Resample to 36s even though L1 files are already at 36 sec because the 
+            ##### Clean and resample to 36s ###########################################    
+            # resample to 36s even though L1 files are already at 36 sec because the 
             # time intervals on the L1 files from BL-View are sometimes off by a second. 
             # Keeping the limit at 1 step prevents the resample from repeating a nearby
             # data point to fill in large gaps in the data.
@@ -128,34 +187,34 @@ class Cl51CloudProdRetriever():
             # The .his files are originally at 16 sec.
             his3 = his3.resample('36S').nearest(limit=1)
 
-            # Do this to fill in an gaps in the data with nans to build complete days.
-            # Create a date range of a complete day with 36s intervals with no gaps.
-            day = pd.date_range(dfL1.index[0].floor('D'), dfL1.index[-1].ceil('D'),freq='36S')
-            df = pd.DataFrame(index=day[:-1])
+            # Do this to fill in an gaps in the data with nans to build com_plete days.
+            # Create a date range of a com_plete day with 36s intervals with no gaps.
+            day = _pd.date_range(dfL1.index[0].floor('D'), dfL1.index[-1].ceil('D'),freq='36S')
+            df = _pd.DataFrame(index=day[:-1])
             df.index.rename('time', inplace=True)
 
             # Merge the date range from above with the dataframes to fill in any gaps 
-            # left to complete a whole day of 36s intervals.
-            dfx = pd.merge_ordered(df, dfL1, on='time') # For the L1 file
+            # left to com_plete a whole day of 36s intervals.
+            dfx = _pd.merge_ordered(df, dfL1, on='time') # For the L1 file
             dfx.set_index('time', drop = True, inplace = True)
 
-            dfhis = pd.merge_ordered(df, his3, on='time')
+            dfhis = _pd.merge_ordered(df, his3, on='time')
             dfhis.set_index('time', drop = True, inplace = True)
 
             ##### Build the Variables and attributes ##################################
             var = {} # Create empty variable dictionary.
 
             # L1 file
-            var['backscatter_profile']=(['time','range'], np.float32(dfx.values),
+            var['backscatter_profile']=(['time','range'], _np.float32(dfx.values),
                                     {'long_name':'2-D ceilometer signal backscatter profile.',
                                      'units':'10e-9 m^-1 sr^-1',
                                      'comments':'Range-corrected-scattering'})
 
             # Level3 .his files.
-            var['cloud_status']=(['time'], np.float32(dfhis['CLOUD_STATUS']),
+            var['cloud_status']=(['time'], _np.float32(dfhis['CLOUD_STATUS']),
                                  {'long_name':'Cloud detection status.',
                                   'units':'1',
-                                  'flag_values':np.float32([0,1,2,3,4]),
+                                  'flag_values':_np.float32([0,1,2,3,4]),
                                   'flag_0':'No significant backscatter.',
                                   'flag_1':'One cloud layer detected.',
                                   'flag_2':'Two cloud layers detected.',
@@ -170,7 +229,7 @@ class Cl51CloudProdRetriever():
                                               highest signal are reported instead.'''})
 
             var['cloud_base']=(['time','cloud_layer'],
-                               np.float32(dfhis[['CLOUD_1','CLOUD_2','CLOUD_3']].values.tolist()),
+                               _np.float32(dfhis[['CLOUD_1','CLOUD_2','CLOUD_3']].values.tolist()),
                                {'long_name':'Cloud base heights.',
                                 'units':'m',
                                 'comments':'''A 2D array containing all three cloud bases
@@ -183,17 +242,17 @@ class Cl51CloudProdRetriever():
 
 
             ##### Create dataset. #####################################################
-            ds = xr.Dataset(attrs = {'title':'Ceilometer cloud product',
+            ds = _xr.Dataset(attrs = {'title':'Ceilometer cloud product',
                                      'version':'1.0',
                                      'institution':'NOAA/GML/GRAD',
                                      'author':'christian.herrera@noaa.gov',
                                      'source':'Vaisala CL51 ceilometer',
                                      'serial_number': poutg.sn.unique()[0],
-                                     'input_files': [fn.name for fn in poutg.path2raw],
+                                     'i_nput_files': [fn.name for fn in poutg.path2raw],
                                      'Conventions':'CF-1.8',
                                      'comments':'''The data has not undergone any processing
-                                         other than what the Vaisala software has applied. 
-                                         In addition, no QC has been applied other than 
+                                         other than what the Vaisala software has ap_plied. 
+                                         In addition, no QC has been ap_plied other than 
                                          a visual inspection for impossible values or 
                                          obvious errors.'''
                                      },
@@ -203,7 +262,7 @@ class Cl51CloudProdRetriever():
                                       'range':('range', L1['range'].values,
                                               {'long_name':'Vertical height bins',
                                               'units':'meters'}),                  
-                                      'cloud_layer':('cloud_layer', np.array([1,2,3]),
+                                      'cloud_layer':('cloud_layer', _np.array([1,2,3]),
                                                      {'long_name':'cloud layer',
                                                       'units':'1'}),
                                       },
@@ -220,10 +279,10 @@ class Cl51CloudProdProcessor(object):
                  p2fl_out = '/nfs/iftp/aftp/g-rad/surfrad/ceilometer/cl51_cloud_prod_lev0', 
                  ):
         
-        self.p2fl_in = pl.Path(p2fl_in)
+        self.p2fl_in = _pl.Path(p2fl_in)
         self.hist_file_format= '*LEVEL_3*.his'
         self.bl_file_format = 'L1*.nc'
-        self.p2fl_out = pl.Path(p2fl_out)
+        self.p2fl_out = _pl.Path(p2fl_out)
         self.fn_format_out = '{site}.cl51.cloud_prod.{date}.nc'
         # self.test = test
         
@@ -237,9 +296,9 @@ class Cl51CloudProdProcessor(object):
                     dt = row.path2raw.name.split('_')[-1].split('.')[0]
                 else:
                     dt = row.path2raw.name.split('_')[-2]
-                return pd.to_datetime(dt)
+                return _pd.to_datetime(dt)
 
-            workplan = pd.DataFrame()
+            workplan = _pd.DataFrame()
 
             for p2site in self.p2fl_in.glob('*'):
                 if not p2site.is_dir():
@@ -252,34 +311,34 @@ class Cl51CloudProdProcessor(object):
                 ## hist files
 
                 p2fl_hist = p2site.joinpath('hist')
-                df = pd.DataFrame(p2fl_hist.glob(self.hist_file_format), columns = ['path2raw'])
+                df = _pd.DataFrame(p2fl_hist.glob(self.hist_file_format), columns = ['path2raw'])
                 df['file_type'] = 'hist'
-                df.index = df.apply(lambda row: pd.to_datetime('{}{}'.format(row.path2raw.name.split('_')[0], row.path2raw.name.split('_')[-1].split('.')[0])), axis = 1)
+                df.index = df.apply(lambda row: _pd.to_datetime('{}{}'.format(row.path2raw.name.split('_')[0], row.path2raw.name.split('_')[-1].split('.')[0])), axis = 1)
                 df_hist = df
 
                 ## bl files
                 p2fl_bl = p2site.joinpath('bl')
-                df = pd.DataFrame(p2fl_bl.glob(self.bl_file_format), columns = ['path2raw'])
+                df = _pd.DataFrame(p2fl_bl.glob(self.bl_file_format), columns = ['path2raw'])
                 df['file_type'] = 'bl'
                 df.index = df.apply(bl2date, axis = 1)
                 df_bl = df
 
                 ## concat  
 
-                df = pd.concat([df_hist, df_bl], sort = True)
+                df = _pd.concat([df_hist, df_bl], sort = True)
 
                 # some more collumns
                 ## site
                 df['site'] = p2site.name.lower()
 
                 # add to workplan
-                workplan = pd.concat([workplan, df])
+                workplan = _pd.concat([workplan, df])
 
 
             workplan.sort_index(inplace=True)
             
             ## add datetime collumn
-            workplan['date'] = workplan.apply(lambda row: pd.to_datetime(row.name.date()), axis = 1)
+            workplan['date'] = workplan.apply(lambda row: _pd.to_datetime(row.name.date()), axis = 1)
             
             ## create path to output file
 
@@ -310,6 +369,7 @@ class Cl51CloudProdProcessor(object):
                 path2fn_out = None,
                 generate_missing_folders = False,
                 error_handling = 'raise',
+                error_handling_serial='raise',
                 verbose = False):
         """
         Processes the workplan
@@ -345,15 +405,16 @@ class Cl51CloudProdProcessor(object):
         no_processed = 0
         errors = []
         out = {}
-        out['start_time'] = pd.Timestamp(datetime.datetime.now())
+        out['start_time'] = _pd.Timestamp(_dt.datetime.now())
         for p2fnout, poutg in self.workplan.groupby('path2fn_out'): 
             if not isinstance(path2fn_out, type(None)):
-                if p2fnout != pl.Path(path2fn_out):
+                if p2fnout != _pl.Path(path2fn_out):
                     continue
                               
             ds = None
             try:
                 retriever = Cl51CloudProdRetriever(poutg)
+                retriever.check_serial(error_handling=error_handling_serial)
                 ds =retriever.product_dataset
                 no_processed += 1
                 
@@ -366,7 +427,7 @@ class Cl51CloudProdProcessor(object):
                     errors.append(err)
                     # errors.append(sys.exc_info())
                     # error, error_txt, trace = sys.exc_info()
-                    # tm = ['{}: {}'.format(error.__name__, error_txt.args[0])] + traceback.format_tb(trace)
+                    # tm = ['{}: {}'.format(error.__name__, error_txt.args[0])] + _tb.format_tb(trace)
                 
             if test == 1:
                 break
@@ -390,22 +451,22 @@ class Cl51CloudProdProcessor(object):
         out['errors'] = errors
         out['last_dataset'] = ds
         out['no_of_files_processed'] = no_processed
-        out['finish_time'] = pd.Timestamp(datetime.datetime.now())
+        out['finish_time'] = _pd.Timestamp(_dt.datetime.now())
         self._last_processing = out
         return out
     
-    def get_single_day_worplan(self, index = -1, random = False):
+    def get_single_day_from_worplan(self, index = -1, random = False):
         gl = [g for idc,g in self.workplan.groupby('path2fn_out')]
         
         if random:
-            index = int(np.round(np.random.random(1) * (len(gl)-1)))
+            index = int(_np.round(_np.random.random(1) * (len(gl)-1)))
     
         oneday = gl[index]
         return oneday
     
     def notify(self):
         config = load_config()
-        assert(config.get('notify', 'email_address') != 'None'), 'No email has been specified, please do so in ~/.ceilopy/config.ini'
+        assert(config.get('notify', 'email_address') != 'None'), 'No email has been specified, _please do so in ~/.ceilopy/config.ini'
         
         out = self._last_processing
         messages = ['run started {}'.format(out['start_time'])]
@@ -420,18 +481,18 @@ class Cl51CloudProdProcessor(object):
         #### errors
         if no_of_errors != 0:
             errs = out['errors']
-            err_types = np.array([err.__class__.__name__ for err in errs])
+            err_types = _np.array([err.__class__.__name__ for err in errs])
             
             typoferrors = []
-            for toe in np.unique(err_types):
-                typoferrors.append({'name': toe, 'times': (err_types == toe).sum(), 'first_err': errs[np.where(err_types == toe)[0][0]]})
+            for toe in _np.unique(err_types):
+                typoferrors.append({'name': toe, 'times': (err_types == toe).sum(), 'first_err': errs[_np.where(err_types == toe)[0][0]]})
         
             messages.append('\n'.join(['Errors by type:',] + ['\t{tn}:\t{tt}'.format(tn = toe['name'], tt = toe['times']) for toe in typoferrors]))
-            messages.append('\n=============================================\n'.join(['First traceback for each error type',]+[''.join(traceback.format_tb(toe['first_err'].__traceback__) + [toe['first_err'].__str__(),]) for toe in typoferrors]))
+            messages.append('\n=============================================\n'.join(['First traceback for each error type',]+[''.join(_tb.format_tb(toe['first_err'].__traceback__) + [toe['first_err'].__str__(),]) for toe in typoferrors]))
         
         #### email body
         message_txt = '\n=========================================================================\n'.join(messages)
-        msg = MIMEText(message_txt)
+        msg = _MIMEText(message_txt)
         
         #### subject
         if no_of_errors ==0:
@@ -447,106 +508,7 @@ class Cl51CloudProdProcessor(object):
         msg['To'] = address
         
         # Send the message via our own SMTP server.
-        s = smtplib.SMTP(smtp)
+        s = _smtplib.SMTP(smtp)
         s.send_message(msg)
         s.quit()
         
-
-
-
-
-
-
-
-
-
-def deprecated_read_L1(path2file):
-    """old way to open L1 files using netCDF4 since xarray would not let me"""
-    
-    def check_shape(var, shape):
-        isshape = np.unique(var[:]).shape
-        assert(isshape == shape), f'I assumed this variable had a dimension of {shape}. Actual shape is {isshape}'
-        return
-    
-    def get_ncattr(var):
-        atr = {}
-        for nca in var.ncattrs():
-            atr[nca] = var.getncattr(nca)
-        return atr
-    
-    nc = netCDF4.Dataset(path2file)
-
-    # get datetime index from the date_stamp variable ... is easier than the time variable
-    dt = nc.variables['date_stamp'][:]
-    dt = pd.to_datetime(dt[:,0])
-    dt.name = 'datetime'
-
-    # range coordinate
-    # range has no attributes not even the unit :-|
-    var = nc.variables['range']
-    coord_range = pd.Index(var[:])
-    coord_range.name = 'range'
-
-    # variables with constant value
-    # non has an attribute
-    var_list = ['name', 'message_type', 'version',  'period', 'profile_scale', 'profile_resolution', 'profile_length']
-    variables = []
-    for vn in var_list:
-        var = nc.variables[vn]
-        check_shape(var,(1,))
-        data = var[:][0,0]
-        attrs = get_ncattr(var)
-        variables.append(dict(name = vn, data = data, attrs = attrs))
-
-    # tilt_angle
-    # no attrs
-    vn = 'tilt_angle'
-    var = nc.variables[vn]
-    data = pd.Series(var[:][:,0], index = dt)
-    attrs =  get_ncattr(var)
-    variables.append(dict(name = vn, data = data, attrs = attrs))
-
-    # cloud status
-    # no attr, so I think this gives info on, 0: no cb detected, 1: cb detected, 2: mulitple cb detected .... but  I am not sure
-    vn = 'cloud_status'
-    var = nc.variables[vn]
-    check_shape(var, (3,))
-    data = pd.Series(var[:][:,0], index = dt)
-    attrs =  get_ncattr(var)
-    variables.append(dict(name = vn, data = data, attrs = attrs))
-
-    # cloud data
-    # this looks like the cloud base for the 3 layers the ceilometer is able to detect
-    # no attrs
-    vn = 'cloud_data'
-    var = nc.variables[vn]
-    coord_cloud_layer = pd.Index([1,2,3])
-    coord_cloud_layer.name = 'cloud_layer'
-    data = pd.DataFrame(var[:], columns=coord_cloud_layer, index=dt)
-    attrs =  get_ncattr(var)
-    variables.append(dict(name = vn, data = data, attrs = attrs))
-
-    # status_bits
-    # no ncattrs ... hopfully the manual wil help with that
-    vn = 'status_bits'
-    var = nc.variables[vn]
-    data = pd.Series(var[:][:,0], index = dt)
-    attrs =  get_ncattr(var)
-    variables.append(dict(name = vn, data = data, attrs = attrs))
-
-    # rcs_910
-    # no attrs ... we really need to know the units here ... I think
-    vn = 'rcs_910'
-    var = nc.variables[vn]
-    data = pd.DataFrame(var[:], columns=coord_range, index=dt)
-    attrs =  get_ncattr(var)
-    variables.append(dict(name = vn, data = data, attrs = attrs))
-
-    # put everything into a xarray dataset
-    ds = xr.Dataset()
-
-    for var in variables:
-        ds[var['name']] = var['data']
-        ds[var['name']].attrs = var['attrs']
-
-    return ds
