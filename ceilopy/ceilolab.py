@@ -67,7 +67,7 @@ def read_L1(file, parent = None):
         fnc = '\n\t'.join([fn.as_posix() for fn in file])
         raise CorruptFileError(f'At least one of the following can not be identified as a netcdf file: \n\t {fnc}')
         
-    L1 = _xr.open_mfdataset(file, concat_dim = 'timeDim', drop_variables=ignore1)
+    L1 = _xr.open_mfdataset(file, drop_variables=ignore1) # , concat_dim = 'timeDim' the usage of this kwarg seems to have changed and is not needed anymore
     L1 = L1.assign_coords(time = _pd.to_datetime(L1.time.values, unit = 's'))
     for var in L1.variables:
         if 'timeDim' in L1[var].dims:
@@ -276,14 +276,18 @@ class Cl51CloudProdRetriever():
 class Cl51CloudProdProcessor(object):
     def __init__(self, 
                  p2fl_in = '/nfs/grad/Inst/Ceil/SURFRAD/',
-                 p2fl_out = '/nfs/iftp/aftp/g-rad/surfrad/ceilometer/cl51_cloud_prod_lev0', 
+                 p2fl_out = '/nfs/iftp/aftp/g-rad/surfrad/ceilometer/cl51_cloud_prod_lev0',
+                 hist_file_format = '*_CEILOMETER_1_LEVEL_3*.his',
+                 ignore = [],
+                 verbose = False,
                  ):
-        
+        self.ignore = ignore
         self.p2fl_in = _pl.Path(p2fl_in)
-        self.hist_file_format= '*LEVEL_3*.his'
+        self.hist_file_format= hist_file_format
         self.bl_file_format = 'L1*.nc'
         self.p2fl_out = _pl.Path(p2fl_out)
         self.fn_format_out = '{site}.cl51.cloud_prod.{date}.nc'
+        self.verbose = verbose
         # self.test = test
         
         self._workplan = None
@@ -291,6 +295,9 @@ class Cl51CloudProdProcessor(object):
     @property
     def workplan(self):
         if isinstance(self._workplan, type(None)):
+            if self.verbose:
+                print('creating workplan')
+                print('=================')
             def bl2date(row):
                 if row.path2raw.name.split('_')[-1].split('.')[0].isnumeric():
                     dt = row.path2raw.name.split('_')[-1].split('.')[0]
@@ -303,9 +310,13 @@ class Cl51CloudProdProcessor(object):
             for p2site in self.p2fl_in.glob('*'):
                 if not p2site.is_dir():
                     continue
-            #     if p2site.name != 'TBL':
-            #         continue
-            #     print(p2site)
+                
+                if self.verbose:
+                    print(f'\t folder: {p2site}')
+                if p2site.name in self.ignore:
+                    if self.verbose:
+                        print(f'\t\t ignore!')
+                    continue
 
                 # get the different file types
                 ## hist files
@@ -363,6 +374,8 @@ class Cl51CloudProdProcessor(object):
             workplan = workplan[workplan['path2fn_out'].map(workplan.groupby('path2fn_out').apply(lambda group: group.file_type.eq('bl').any()&group.file_type.eq('hist').any()))]
                         
             self._workplan = workplan
+            if self.verbose:
+                print('========= workplan done ==========')
         return self._workplan
     
     def process(self, test=False, 
@@ -396,6 +409,9 @@ class Cl51CloudProdProcessor(object):
             DESCRIPTION.
 
         """
+        if self.verbose:
+            print('processing')
+            print('==========')
         def make_all_parent_flds(file): 
             if not file.parent.is_dir():
                 make_all_parent_flds(file.parent)
@@ -407,6 +423,8 @@ class Cl51CloudProdProcessor(object):
         out = {}
         out['start_time'] = _pd.Timestamp(_dt.datetime.now())
         for p2fnout, poutg in self.workplan.groupby('path2fn_out'): 
+            if self.verbose:
+                print(f'\t path2fn_out: {p2fnout} - {poutg}')
             if not isinstance(path2fn_out, type(None)):
                 if p2fnout != _pl.Path(path2fn_out):
                     continue
@@ -464,7 +482,7 @@ class Cl51CloudProdProcessor(object):
         oneday = gl[index]
         return oneday
     
-    def notify(self):
+    def notify(self, subject = 'cl51cloudprod - status: {status} (clean: {no_of_files_processed}; errors: {no_of_errors})'):
         config = load_config()
         assert(config.get('notify', 'email_address') != 'None'), 'No email has been specified, _please do so in ~/.ceilopy/config.ini'
         
@@ -499,7 +517,8 @@ class Cl51CloudProdProcessor(object):
             status = 'clean'
         else:
             status = 'errors'
-        subject = f'cl51cloudprod - status: {status} (clean: {no_of_files_processed}; errors: {no_of_errors})'
+        # subject = f'cl51cloudprod - status: {status} (clean: {no_of_files_processed}; errors: {no_of_errors})'
+        subject = subject.format(status = status, no_of_files_processed = no_of_files_processed, no_of_errors = no_of_errors)
         address  = config.get('notify', 'email_address')
         smtp = config.get('notify', 'smtp')
         

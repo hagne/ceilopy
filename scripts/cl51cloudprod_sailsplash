@@ -16,7 +16,11 @@ from ceilopy import ceilolab as cl
 
 assert(cl.load_config().get('notify', 'email_address') != 'None'), 'No email has been specified, please do so in ~/.ceilopy/config.ini'
 
-clp = cl.Cl51CloudProdProcessor()
+clp = cl.Cl51CloudProdProcessor(ignore=['plots'], 
+                                # verbose=True,
+                                p2fl_in='/nfs/grad/gradobs/raw/short_term/sailsplash/Ceil/',
+                                p2fl_out='/nfs/iftp/aftp/g-rad/surfrad/ceilometer/cl51_cloud_prod_lev0/',
+                                )
 clp.process(generate_missing_folders=True, error_handling='return')
-clp.notify()
+clp.notify(subject = 'sail-splash - cl51cloudprod - status: {status} (clean: {no_of_files_processed}; errors: {no_of_errors})')
 

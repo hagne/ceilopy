@@ -16,7 +16,8 @@ setup(
     license="MIT",
     url="https://github.com/hagne/ceilopy",
     install_requires=['pandas', 'numpy', 'xarray'],
-    scripts=['scripts/cl51cloudprod'],
+    scripts=['scripts/cl51cloudprod',
+             'scripts/cl51cloudprod_sailsplash'],
     # package_data={'': ['*.cdl']},
     # include_package_data=True,
     # zip_safe=False
