@@ -16,7 +16,11 @@ from ceilopy import ceilolab as cl
 
 assert(cl.load_config().get('notify', 'email_address') != 'None'), 'No email has been specified, please do so in ~/.ceilopy/config.ini'
 
-clp = cl.Cl51CloudProdProcessor()
+clp = cl.Cl51CloudProdProcessor(p2fl_in = '/nfs/grad/Inst/Ceil/SURFRAD/',
+                                p2fl_out = '/nfs/iftp/aftp/g-rad/surfrad/ceilometer/cl51_cloud_prod_lev0',
+                                hist_file_format = '*_CEILOMETER_1_LEVEL_3*.his',
+                                ignore = [],
+                                verbose = False,)
 clp.process(generate_missing_folders=True, error_handling='return')
 clp.notify()
 

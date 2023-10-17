@@ -66,9 +66,11 @@ def read_L1(file, parent = None):
     if not _np.all([_magic.from_file(fn.as_posix()) == 'Hierarchical Data Format (version 5) data' for fn in file]):
         fnc = '\n\t'.join([fn.as_posix() for fn in file])
         raise CorruptFileError(f'At least one of the following can not be identified as a netcdf file: \n\t {fnc}')
-        
-    L1 = _xr.open_mfdataset(file, drop_variables=ignore1) # , concat_dim = 'timeDim' the usage of this kwarg seems to have changed and is not needed anymore
+    parent.tp_file = file.copy()    
+    # cause problems:L1 = _xr.open_mfdataset(file, drop_variables=ignore1) # , concat_dim = 'timeDim' the usage of this kwarg seems to have changed and is not needed anymore
+    L1 = _xr.open_mfdataset(file, drop_variables=ignore1, concat_dim = 'timeDim', combine='nested')
     L1 = L1.assign_coords(time = _pd.to_datetime(L1.time.values, unit = 's'))
+    # parent.tp_ = 
     for var in L1.variables:
         if 'timeDim' in L1[var].dims:
             L1[var] = L1[var].swap_dims({'timeDim':'time'})
@@ -169,11 +171,13 @@ class Cl51CloudProdRetriever():
         if isinstance(self._product_dataset, type(None)):
             poutg = self.poutg
             
-            L1 = read_L1(poutg[poutg.file_type == 'bl'].path2raw)
-
+            L1 = read_L1(poutg[poutg.file_type == 'bl'].path2raw, parent = self)
+            self.tp_L1 = L1.copy()
             dfL1 = L1.rcs_910.to_pandas()
-            assert(dfL1.index.duplicated().sum() == 0), "there are duplicates in L1's index, I would think this should be happening. if it does un-comment the following line"
-            # dfL1 = dfL1[~dfL1.index.duplicated(keep='first')]
+            # assert(dfL1.index.duplicated().sum() == 0), "there are duplicates in L1's index, I would think this should be happening. if it does un-comment the following line"
+            dfL1 = dfL1[~dfL1.index.duplicated(keep='first')]
+            assert(dfL1.index.duplicated().sum() == 0), "haaaa, duplicates should all be gone"
+
 
             his3 = read_level3_hist(poutg[poutg.file_type == 'hist'].path2raw, parent = self)
 
@@ -185,6 +189,8 @@ class Cl51CloudProdRetriever():
             dfL1 = dfL1.resample('36S').nearest(limit=1)
 
             # The .his files are originally at 16 sec.
+            self.tp_his3 = his3.copy()
+            his3 = his3[his3.index.notna()] # sometimes the last row (or others?) has a NaT index, this removes it
             his3 = his3.resample('36S').nearest(limit=1)
 
             # Do this to fill in an gaps in the data with nans to build com_plete days.
@@ -219,42 +225,29 @@ class Cl51CloudProdRetriever():
                                   'flag_1':'One cloud layer detected.',
                                   'flag_2':'Two cloud layers detected.',
                                   'flag_3':'Three cloud layers detected.',
-                                  'flag_4':'''Full obscuration/vertical visibility mode.
-                                            First cloud_base will report vertical visibility
-                                            and second cloud_base will report highest signal''',
-                                  'comments':'''When cloud_status=4 there is an optically
-                                              thick cloud that obscures the signal. Therefore
-                                              it is not possible to discern additional cloud
-                                              layers above it so the vertical visibility and
-                                              highest signal are reported instead.'''})
+                                  'flag_4':'''Full obscuration/vertical visibility mode. First cloud_base will report vertical visibility and second cloud_base will report highest signal''',
+                                  'comments':'''When cloud_status=4 there is an optically thick cloud that obscures the signal. Therefore it is not possible to discern additional cloud layers above it so the vertical visibility and highest signal are reported instead.'''})
 
             var['cloud_base']=(['time','cloud_layer'],
                                _np.float32(dfhis[['CLOUD_1','CLOUD_2','CLOUD_3']].values.tolist()),
                                {'long_name':'Cloud base heights.',
                                 'units':'m',
-                                'comments':'''A 2D array containing all three cloud bases
-                                            at each timestep. -999 if no significant signal.''',
-                                'cloud_base_1':'''First cloud base height or vertical visibility
-                                                if cloud_status=4''',
-                                'cloud_base_2':'''Second cloud base height or highest received
-                                                signal if cloud_status=4''',
+                                'comments':'''A 2D array containing all three cloud bases at each timestep. -999 if no significant signal.''',
+                                'cloud_base_1':'''First cloud base height or vertical visibility if cloud_status=4''',
+                                'cloud_base_2':'''Second cloud base height or highest received signal if cloud_status=4''',
                                 'cloud_base_3':'Third cloud base height'})   
 
 
             ##### Create dataset. #####################################################
             ds = _xr.Dataset(attrs = {'title':'Ceilometer cloud product',
-                                     'version':'1.0',
+                                     'version':'1.1',
                                      'institution':'NOAA/GML/GRAD',
-                                     'author':'christian.herrera@noaa.gov',
+                                     'author':'hagen.telg@noaa.gov',
                                      'source':'Vaisala CL51 ceilometer',
                                      'serial_number': poutg.sn.unique()[0],
                                      'i_nput_files': [fn.name for fn in poutg.path2raw],
                                      'Conventions':'CF-1.8',
-                                     'comments':'''The data has not undergone any processing
-                                         other than what the Vaisala software has ap_plied. 
-                                         In addition, no QC has been ap_plied other than 
-                                         a visual inspection for impossible values or 
-                                         obvious errors.'''
+                                     'comments':'''The data has not undergone any processing other than what the Vaisala software has ap_plied. In addition, no QC has been ap_plied other than a visual inspection for impossible values or obvious errors.'''
                                      },
                             coords = {'time':('time', df.index.values,
                                               {'long_name':'Time in UTC',
@@ -276,11 +269,34 @@ class Cl51CloudProdRetriever():
 class Cl51CloudProdProcessor(object):
     def __init__(self, 
                  p2fl_in = '/nfs/grad/Inst/Ceil/SURFRAD/',
-                 p2fl_out = '/nfs/iftp/aftp/g-rad/surfrad/ceilometer/cl51_cloud_prod_lev0',
+                 p2fl_out = '/nfs/iftp/aftp/g-rad/surfrad/ceilometer/cl51_cloud_prod_lev1',
                  hist_file_format = '*_CEILOMETER_1_LEVEL_3*.his',
                  ignore = [],
                  verbose = False,
                  ):
+        """
+        This class aggreates all functions that are needed to create the cl51_cloud_prod_lev1 (formally known as cl51_cloud_prod_lev0) product.
+        
+
+        Parameters
+        ----------
+        p2fl_in : str, optional
+            Path to input folder. This folder is expected to have further subfolders, one for each instrument (typically the measurment site, e.g. TBL)
+        p2fl_out : str, optional
+            Output folder. The default is '/nfs/iftp/aftp/g-rad/surfrad/ceilometer/cl51_cloud_prod_lev1'.
+        hist_file_format : TYPE, optional
+            Format (pattern) of the hist files. As this format sometimes changes it not hardcoded. The default is '*_CEILOMETER_1_LEVEL_3*.his'.
+        ignore : list, optional
+            When there is a folder in the p2fl_in folder that mathes an element of this list it will be ignored.
+        verbose : bool, optional
+            If True there will be more output ... mostly for develpment purposes. The default is False.
+
+
+        Returns
+        -------
+        Cl51CloudProdProcessor instance.
+
+        """
         self.ignore = ignore
         self.p2fl_in = _pl.Path(p2fl_in)
         self.hist_file_format= hist_file_format
@@ -315,7 +331,7 @@ class Cl51CloudProdProcessor(object):
                     print(f'\t folder: {p2site}')
                 if p2site.name in self.ignore:
                     if self.verbose:
-                        print(f'\t\t ignore!')
+                        print('\t\t ignore!')
                     continue
 
                 # get the different file types
@@ -378,6 +394,10 @@ class Cl51CloudProdProcessor(object):
                 print('========= workplan done ==========')
         return self._workplan
     
+    @workplan.setter
+    def workplan(self, value):
+        self._workplan = value
+        
     def process(self, test=False, 
                 path2fn_out = None,
                 generate_missing_folders = False,
@@ -420,10 +440,11 @@ class Cl51CloudProdProcessor(object):
                 
         no_processed = 0
         errors = []
+        errror_grp = []
         out = {}
         out['start_time'] = _pd.Timestamp(_dt.datetime.now())
         for p2fnout, poutg in self.workplan.groupby('path2fn_out'): 
-            if self.verbose:
+            if verbose:
                 print(f'\t path2fn_out: {p2fnout} - {poutg}')
             if not isinstance(path2fn_out, type(None)):
                 if p2fnout != _pl.Path(path2fn_out):
@@ -432,6 +453,7 @@ class Cl51CloudProdProcessor(object):
             ds = None
             try:
                 retriever = Cl51CloudProdRetriever(poutg)
+                self.tp_retriever = retriever
                 retriever.check_serial(error_handling=error_handling_serial)
                 ds =retriever.product_dataset
                 no_processed += 1
@@ -443,6 +465,7 @@ class Cl51CloudProdProcessor(object):
                 #### error handling
                 elif error_handling == 'return':
                     errors.append(err)
+                    errror_grp.append(poutg)
                     # errors.append(sys.exc_info())
                     # error, error_txt, trace = sys.exc_info()
                     # tm = ['{}: {}'.format(error.__name__, error_txt.args[0])] + _tb.format_tb(trace)
@@ -467,6 +490,7 @@ class Cl51CloudProdProcessor(object):
                 break
         
         out['errors'] = errors
+        out['errror_grp'] = errror_grp
         out['last_dataset'] = ds
         out['no_of_files_processed'] = no_processed
         out['finish_time'] = _pd.Timestamp(_dt.datetime.now())
