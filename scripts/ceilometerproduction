@@ -1,0 +1,18 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+Created on Thu Nov 30 14:14:47 2023
+
+@author: htelg
+
+This script runs all the ceilometer products. The reason why this is done in
+a single file is that when installing the package with pip install -e does not
+allow editing of the script like the "python setup.py develop" used to do. There
+the script merely executes a function from within the main package that can 
+be edited.
+"""
+
+
+import ceilopy.products.production as ceiloprod
+
+ceiloprod.run()

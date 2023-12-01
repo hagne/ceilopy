@@ -1,0 +1,33 @@
+[build-system]
+requires = ["setuptools>=46.4.0", "wheel", "setuptools_scm"]
+#requires = ["setuptools", "wheel", "setuptools_scm"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ceilopy"
+authors = [{ name = "Hagen Telg", email = "hagen.telg@gmail.com" }]
+description = "Python library with tools for ceilometer data processing."
+license = { file = "LICENSE" }
+dynamic = ["version"]
+
+
+[project.urls]
+Documentation = "https://github.com/hagne/ceilopy"  # or your documentation URL
+Repository = "https://github.com/hagne/ceilopy"
+
+
+[tool.setuptools]
+packages = ["ceilopy"]
+
+[tool.setuptools_scm]
+write_to = "_version.py"  # Path to write the version file
+
+#[project.entry-points.console-scripts]
+#ceilometerproduction = "ceilopy.products.production:run"
+
+[project.scripts]
+ceilometerproduction = "ceilopy.products.production:run"
+
+#[tool.setuptools.entry_points]
+#console_scripts =
+#    ceilometerproduction = ceilopy.products.production:run
