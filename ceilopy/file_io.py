@@ -10,6 +10,7 @@ import numpy as _np
 import xarray as _xr
 import pandas as _pd
 import magic as _magic
+import warnings as _warnings
 
 import ceilopy.ceilolab as cl
 

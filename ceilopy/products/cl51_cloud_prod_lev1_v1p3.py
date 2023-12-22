@@ -20,9 +20,10 @@ import smtplib as _smtplib
 import ceilopy.file_io as fio
 import ceilopy.ceilolab as ceilolab
 import matplotlib.pyplot as _plt
+import gc as _gc
 
 class Cl51CloudProdRetriever_v1p3():
-    def __init__(self, poutg, version,
+    def __init__(self, poutg, version,reporter,
                  # check_serial = True,
                  ):
         """
@@ -49,6 +50,7 @@ class Cl51CloudProdRetriever_v1p3():
         self.poutg = poutg
 #         self.p2fnout = poutg.path2fn_out.unique()[0]
         self._product_dataset = None
+        self.reporter = reporter
         # self.get_serial_numbers()
         # if check_serial:
         #     self.check_serial()
@@ -120,7 +122,31 @@ class Cl51CloudProdRetriever_v1p3():
                     dsl.append(dst.dataset)
                     input_files.append(p.name)
                 ds = ceilolab.CeilometerData(_xr.concat(dsl, 'time'))
-            except OSError:
+            except Exception as e:                
+                if isinstance(e, OSError): #netcdf is not readable
+                    if not (e.args[0] == -101) and (e.args[1] == 'NetCDF: HDF error'):
+                        raise
+                    # print('test not just for the error but also the argument of the error ... let it raise one time to get the message')
+                    # raise
+                    # pass
+                
+                # older L2 nc files have a strange file format, for now, just use hist files instead
+                # valid for next exceptions
+                elif isinstance(e, RuntimeError):
+                    if e.args[0] != "Failed to decode variable 'name': NetCDF: HDF error":
+                        raise
+                elif isinstance(e, ValueError):
+                    if e.args[0] == "Dimensions {'cloud_statusDim'} do not exist. Expected one or more of ('time', 'cloud_status')":
+                        pass
+                    elif "did not find a match in any of xarray's currently installed IO backends" in e.args[0]:
+                        pass
+                    else:
+                        raise
+                else:
+                    raise
+                
+                if not isinstance(self.reporter, type(None)): self.reporter.warnings_increment()
+                
                 dsl = []
                 input_files = []
                 
@@ -235,10 +261,12 @@ class Cl51CloudProdProcessor_v1p3(object):
                  p2fl_in = '/nfs/grad/Inst/Ceil/SURFRAD/',
                  p2fl_out = '/nfs/iftp/aftp/g-rad/surfrad/ceilometer/cl51_cloud_prod_lev1_{version}',
                  p2fl_quicklooks = None,
+                # file_type = 'bl',
                  # version = '0',
                  hist_file_format = '*_CEILOMETER_1_LEVEL_3*.his',
                   ignore = [],
                  # create_quicklooks = False,
+                 reporter = None,
                  verbose = False,
                  ):
         """
@@ -256,6 +284,8 @@ class Cl51CloudProdProcessor_v1p3(object):
             Path to quicklooks. If None no quicklooks will be generated. Default is None.
         hist_file_format : TYPE, optional
             Format (pattern) of the hist files. As this format sometimes changes it not hardcoded. The default is '*_CEILOMETER_1_LEVEL_3*.his'.
+        file_type: str, optional ['bl', 'hist']
+            What filetype to try first. Currently when 'hist' is selected 'bl' is not considered at all (it is unusual that the bl file exists but not the hist file.)
         ignore : list, optional
             When there is a folder in the p2fl_in folder that mathes an element of this list it will be ignored.
         verbose : bool, optional
@@ -268,9 +298,12 @@ class Cl51CloudProdProcessor_v1p3(object):
 
         """
         self.version = '1.3.1'
+        self.reporter = reporter
         self.p2fl_out = _pl.Path(p2fl_out.format(version = self.version))
         self.p2fl_quicklooks = _pl.Path(p2fl_quicklooks.format(version = self.version))
         
+        # assert(file_type in ['bl', 'hist']), f'file_type neither hist, nor bl. Is {file_type}'
+        # self.file_type = file_type
         self.ignore = ignore
         self.p2fl_in = _pl.Path(p2fl_in)
         self.hist_file_format= hist_file_format
@@ -378,12 +411,14 @@ class Cl51CloudProdProcessor_v1p3(object):
     @workplan.setter
     def workplan(self, value):
         self._workplan = value
-        
+     
+    
     def process(self, test=False, 
                 path2fn_out = None,
                 generate_missing_folders = False,
                 error_handling = 'raise',
                 error_handling_serial='raise',
+                error_handling_missing_level3 = 'raise',
                 verbose = False, 
                 complevel = 4):
         """
@@ -437,23 +472,36 @@ class Cl51CloudProdProcessor_v1p3(object):
                               
             ds = None
             try:
-                retriever = Cl51CloudProdRetriever_v1p3(poutg, self.version)
+                retriever = Cl51CloudProdRetriever_v1p3(poutg, self.version, self.reporter)
                 self.tp_retriever = retriever
                 ####Fixme retriever.check_serial(error_handling=error_handling_serial)
                 ds =retriever.product_dataset.dataset
                 no_processed += 1
+                if not isinstance(self.reporter, type(None)): self.reporter.clean_increment()
+                    
                 
             except Exception as err:
-                if error_handling == 'raise':
-                    raise
-                
-                #### error handling
-                elif error_handling == 'return':
-                    errors.append(err)
-                    errror_grp.append(poutg)
-                    # errors.append(sys.exc_info())
-                    # error, error_txt, trace = sys.exc_info()
-                    # tm = ['{}: {}'.format(error.__name__, error_txt.args[0])] + _tb.format_tb(trace)
+                #### TODO: there are cases where the level and only the level 3 files are missing, what happens If I still generate a file just with all those values empty
+                if isinstance(err, FileNotFoundError):
+                    if error_handling_missing_level3 =='return':
+                        errors.append(err)
+                        errror_grp.append(poutg)
+                    else:
+                        raise
+                    
+                    
+                else:
+                    if error_handling == 'raise':
+                        raise
+                    
+                    #### error handling
+                    elif error_handling == 'return':
+                        errors.append(err)
+                        errror_grp.append(poutg)
+                        # errors.append(sys.exc_info())
+                        # error, error_txt, trace = sys.exc_info()
+                        # tm = ['{}: {}'.format(error.__name__, error_txt.args[0])] + _tb.format_tb(trace)
+                if not isinstance(self.reporter, type(None)): self.reporter.errors_increment()
                 
             if test == 1:
                 break
@@ -494,13 +542,20 @@ class Cl51CloudProdProcessor_v1p3(object):
                     outql = retriever.product_dataset.plot_quicklooks()
                     f = outql[0]
                     f.savefig(poutg.path2quicklooks.iloc[0],bbox_inches = 'tight', dpi = 150)
-                    _plt.close() # this will close all figures, which will otherwise burst the memory
+                    f.clear()
+                    _plt.close('all') # this will close all figures, which will otherwise burst the memory
+                    _gc.collect()
+                print('.', end = '', flush=True)
             else:
                 if verbose:
                     print(f'{p2fnout} was not saved as ds is None.')
+                print('|', end = '', flush=True)
                 
             if test == 2:
                 break
+            if not isinstance(self.reporter, type(None)): self.reporter.log()
+            
+            
         
         out['errors'] = errors
         out['errror_grp'] = errror_grp
@@ -508,6 +563,7 @@ class Cl51CloudProdProcessor_v1p3(object):
         out['no_of_files_processed'] = no_processed
         out['finish_time'] = _pd.Timestamp(_dt.datetime.now())
         self._last_processing = out
+        if not isinstance(self.reporter, type(None)): self.reporter.log(overwrite_reporting_frequency=True)
         return out
     
     def get_single_day_from_worplan(self, index = -1, random = False):
