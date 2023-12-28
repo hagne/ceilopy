@@ -150,17 +150,22 @@ class Cl51CloudProdRetriever_v1p3():
                 dsl = []
                 input_files = []
                 
+                #### tests: correct number of files and if they exist
+                files_hl2 = poutg.path2althist_l2.unique()
+                assert(files_hl2.shape[0] ==1), 'I thought there is always just 1 hist file a day, even if there is a reboot ... unlike the netcdffiles'
+                assert(files_hl2[0].is_file()), f'hist level 2 file does not exist. Should be here: {files_hl2[0]}'
+                
+                files_hl3 = poutg.path2althist_l3.unique()
+                assert(files_hl3.shape[0] ==1), 'I thought there is always just 1 hist file a day, even if there is a reboot ... unlike the netcdffiles'
+                assert(files_hl3[0].is_file()), f'hist level 3 file does not exist. Should be here: {files_hl3[0]}'
+                
                 #### load hist lev 2 file
-                files = poutg.path2althist_l2.unique()
-                assert(files.shape[0] ==1), 'I thought there is always just 1 hist file a day, even if there is a reboot ... unlike the netcdffiles'
-                dsh2 = fio.read_hist_level2(files[0])
-                input_files.append(files[0].name)
+                dsh2 = fio.read_hist_level2(files_hl2[0])
+                input_files.append(files_hl2[0].name)
                 
                 #### load hist lev 3 file
-                files = poutg.path2althist_l3.unique()
-                assert(files.shape[0] ==1), 'I thought there is always just 1 hist file a day, even if there is a reboot ... unlike the netcdffiles'
-                dsh3 = fio.read_hist_level3(files[0])
-                input_files.append(files[0].name)    
+                dsh3 = fio.read_hist_level3(files_hl3[0])
+                input_files.append(files_hl3[0].name)    
                 
                 ds = _xr.merge([dsh2.dataset, dsh3.dataset])
                 ds = ceilolab.CeilometerData(ds)
@@ -482,14 +487,16 @@ class Cl51CloudProdProcessor_v1p3(object):
                 
             except Exception as err:
                 #### TODO: there are cases where the level and only the level 3 files are missing, what happens If I still generate a file just with all those values empty
-                if isinstance(err, FileNotFoundError):
-                    if error_handling_missing_level3 =='return':
-                        errors.append(err)
-                        errror_grp.append(poutg)
+                if isinstance(err, AssertionError):
+                    if 'hist level 3 file does not exist.' in err.args[0]:   
+                        # if isinstance(err, FileNotFoundError):
+                        if error_handling_missing_level3 =='return':
+                            errors.append(err)
+                            errror_grp.append(poutg)
+                        else:
+                            raise
                     else:
-                        raise
-                    
-                    
+                        raise                    
                 else:
                     if error_handling == 'raise':
                         raise
