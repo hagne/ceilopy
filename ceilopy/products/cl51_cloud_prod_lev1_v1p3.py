@@ -468,7 +468,7 @@ class Cl51CloudProdProcessor_v1p3(object):
         errror_grp = []
         out = {}
         out['start_time'] = _pd.Timestamp(_dt.datetime.now())
-        for p2fnout, poutg in self.workplan.groupby('path2fn_out'): 
+        for p2fnout, poutg in self.workplan.groupby('path2fn_out', sort = False): 
             if verbose:
                 print(f'\t path2fn_out: {p2fnout} - {poutg}')
             if not isinstance(path2fn_out, type(None)):
@@ -486,6 +486,7 @@ class Cl51CloudProdProcessor_v1p3(object):
                     
                 
             except Exception as err:
+                handled = False
                 #### TODO: there are cases where the level and only the level 3 files are missing, what happens If I still generate a file just with all those values empty
                 if isinstance(err, AssertionError):
                     if 'hist level 3 file does not exist.' in err.args[0]:   
@@ -493,11 +494,13 @@ class Cl51CloudProdProcessor_v1p3(object):
                         if error_handling_missing_level3 =='return':
                             errors.append(err)
                             errror_grp.append(poutg)
+                            if verbose:
+                                print(f'error: {err.args[0]}')
+                            handled = True
                         else:
                             raise
-                    else:
-                        raise                    
-                else:
+                   
+                if not handled:
                     if error_handling == 'raise':
                         raise
                     
