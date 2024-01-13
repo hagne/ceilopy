@@ -2,7 +2,7 @@ Products
 ========
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 1
    :caption: Contents:
    
    product_cl51_cloud_prod_lev1.rst

@@ -47,7 +47,11 @@
         </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
               <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
 <ul class="current">
-<li class="toctree-l1 current"><a class="current reference internal" href="#">Installation</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Installation</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#dependencies">Dependencies</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#install-from-github">Install from github</a></li>
+</ul>
+</li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
 <ul>
@@ -80,12 +84,23 @@
              
   <section id="installation">
 <h1>Installation<a class="headerlink" href="#installation" title="Link to this heading"></a></h1>
-<p>Clone from Github, enter directory and istall with git:</p>
+<section id="dependencies">
+<h2>Dependencies<a class="headerlink" href="#dependencies" title="Link to this heading"></a></h2>
+<p>Dependencies are not installed automatically. Make sure to install the following,
+e.g. with conda:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>conda<span class="w"> </span>-c<span class="w"> </span>conda-forge<span class="w"> </span>xarray<span class="w"> </span>magic<span class="w"> </span>matplotlib
+</pre></div>
+</div>
+</section>
+<section id="install-from-github">
+<h2>Install from github<a class="headerlink" href="#install-from-github" title="Link to this heading"></a></h2>
+<p>Clone from Github, enter directory and install with git:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>$<span class="w"> </span>git<span class="w"> </span>clone<span class="w"> </span>https://github.com/hagne/ceilopy
 $<span class="w"> </span><span class="nb">cd</span><span class="w"> </span>ceilopy
 $<span class="w"> </span>git<span class="w"> </span>install<span class="w"> </span>.
 </pre></div>
 </div>
+</section>
 </section>
 
 

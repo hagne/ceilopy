@@ -1,12 +1,35 @@
 cl51_cloud_prod_lev1
 ====================
 
-This cl51_cloud_prod_lev1 product unifies and reformats data from the Vaisala CL51 ceiliometer. Despite seeming straightforward, this process is complex because of the data's peculiar storage and scarce documentation. This page details the strategies used for data unification and reformatting.
+.. note::
 
-For an example of how to execute the product see this `example <./doc/your_notebook.ipynb>`_ or explore this :mod:`script`.
+    This is the documentation for the product version 1.3.2. Check the :doc:`changelog <./cl51_cloud_prod_lev1_changlog>` for changes.
+    
+
+This cl51_cloud_prod_lev1 product unifies and reformats data from the Vaisala CL51 ceiliometer. Despite seeming straightforward, this process is complex because of the data's peculiar storage and scarce documentation. This page details the strategies used for data unification and reformatting.  
+
+.. note::
+    For an example of how to use the product see this `example <./notebooks/cl51_cloud_prod_lev1_v1p3.ipynb>`_ or explore this :mod:`ceilopy.products.production`.
+
+Strategy
+--------
+
+In the fist step all files in the input path ``p2fl_in`` are collected and the 
+associated output paths (one per day) are generated. If a output file is missing 
+it will be generated in the following process.
+
+#. Try to read relevant data level 2 netcdf file, e.g ``.../bl/L2_06610_201901010000.nc``. If this fails due to missing, corrupt, or poor formating (old versions) the data is read from the hist level 2 and level 3 files, e.g. ``.../hist/201901_CEILOMETER_1_LEVEL_2_01.his`` or ``.../hist/201901_CEILOMETER_1_LEVEL_3_DEFAULT_01.his``, respectively. Data is formatted into an :class:`xarray.Dataset` and a :class:`ceilopy.ceilolab.CeilometerData` instance is generated.
+
+#. The dataset formatted in accordance with the CF-1.8 convention for NetCDF files using :meth:`ceilopy.ceilolab.CeilometerData.decorate_dataset`.
+
+#. It is a known issue that in rare circumstances the timestamp is inconsistent. Whenever the timestamp jumps back in time duplicate timestamps are removed (:meth:`ceilopy.ceilolab.CeilometerData.remove_timeinconsitancies`). 🚧 These rare occurrences are under investigation.
+
+#. The data is re-indexed along the time coordinate to the nearest full minute, using the closest valid data value from within 1 minute prior to each timestamp. (:meth:`ceilopy.ceilolab.CeilometerData.reindex`). This action aims to align Timestamp times and policies (timestamp at the end of each 1-minute interval) with SURFRAD data. Originally, Vaisala processes data in 38-second intervals, but level 2 and 3 data show 16-second intervals, suggesting artificial upsampling.
+
+#. Eventually the data is saved to NetCDF. See this `example <./notebooks/cl51_cloud_prod_lev1_v1p3.ipynb>` for the final file structure.
 
 Module Overview
-===============
+---------------
 .. automodule:: ceilopy.products.cl51_cloud_prod_lev1_v1p3
    :members:
    :undoc-members:

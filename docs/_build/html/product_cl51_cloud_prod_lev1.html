@@ -21,7 +21,8 @@
         <script crossorigin="anonymous" integrity="sha256-Ae2Vz/4ePdIu6ZyI/5ZGsYnb+m0JlOmKPjt6XZ9JJkA=" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
     <script src="_static/js/theme.js"></script>
     <link rel="index" title="Index" href="genindex.html" />
-    <link rel="search" title="Search" href="search.html" /> 
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="prev" title="Products" href="products.html" /> 
 </head>
 
 <body class="wy-body-for-nav"> 
@@ -48,8 +49,19 @@
 <li class="toctree-l1"><a class="reference internal" href="installation.html">Installation</a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
-<ul>
-<li class="toctree-l1"><a class="reference internal" href="products.html">Products</a></li>
+<ul class="current">
+<li class="toctree-l1 current"><a class="reference internal" href="products.html">Products</a><ul class="current">
+<li class="toctree-l2 current"><a class="current reference internal" href="#">cl51_cloud_prod_lev1</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#strategy">Strategy</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#module-ceilopy.products.cl51_cloud_prod_lev1_v1p3">Module Overview</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#ceilopy.products.cl51_cloud_prod_lev1_v1p3.Cl51CloudProdProcessor_v1p3"><code class="docutils literal notranslate"><span class="pre">Cl51CloudProdProcessor_v1p3</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#ceilopy.products.cl51_cloud_prod_lev1_v1p3.Cl51CloudProdRetriever_v1p3"><code class="docutils literal notranslate"><span class="pre">Cl51CloudProdRetriever_v1p3</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
 </ul>
 
         </div>
@@ -66,6 +78,7 @@
           <div role="navigation" aria-label="Page navigation">
   <ul class="wy-breadcrumbs">
       <li><a href="index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="products.html">Products</a></li>
       <li class="breadcrumb-item active">cl51_cloud_prod_lev1</li>
       <li class="wy-breadcrumbs-aside">
             <a href="_sources/product_cl51_cloud_prod_lev1.rst.txt" rel="nofollow"> View page source</a>
@@ -78,13 +91,104 @@
              
   <section id="cl51-cloud-prod-lev1">
 <h1>cl51_cloud_prod_lev1<a class="headerlink" href="#cl51-cloud-prod-lev1" title="Link to this heading"></a></h1>
-<p>asdfasdf</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>This is the documentation for the product version 1.3.2. Check the <a class="reference internal" href="cl51_cloud_prod_lev1_changlog.html"><span class="doc">changelog</span></a> for changes.</p>
+</div>
+<p>This cl51_cloud_prod_lev1 product unifies and reformats data from the Vaisala CL51 ceiliometer. Despite seeming straightforward, this process is complex because of the data’s peculiar storage and scarce documentation. This page details the strategies used for data unification and reformatting.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>For an example of how to use the product see this <a class="reference internal" href="notebooks/cl51_cloud_prod_lev1_v1p3.html"><span class="doc">example</span></a> or explore this <code class="xref py py-mod docutils literal notranslate"><span class="pre">ceilopy.products.production</span></code>.</p>
+</div>
+<section id="strategy">
+<h2>Strategy<a class="headerlink" href="#strategy" title="Link to this heading"></a></h2>
+<p>In the fist step all files in the input path <code class="docutils literal notranslate"><span class="pre">p2fl_in</span></code> are collected and the
+associated output paths (one per day) are generated. If a output file is missing
+it will be generated in the following process.</p>
+<ol class="arabic simple">
+<li><p>Try to read relevant data level 2 netcdf file, e.g <code class="docutils literal notranslate"><span class="pre">.../bl/L2_06610_201901010000.nc</span></code>. If this fails due to missing, corrupt, or poor formating (old versions) the data is read from the hist level 2 and level 3 files, e.g. <code class="docutils literal notranslate"><span class="pre">.../hist/201901_CEILOMETER_1_LEVEL_2_01.his</span></code> or <code class="docutils literal notranslate"><span class="pre">.../hist/201901_CEILOMETER_1_LEVEL_3_DEFAULT_01.his</span></code>, respectively. Data is formatted into an <code class="xref py py-class docutils literal notranslate"><span class="pre">xarray.Dataset</span></code> and a <code class="xref py py-class docutils literal notranslate"><span class="pre">ceilopy.ceilolab.CeilometerData</span></code> instance is generated.</p></li>
+<li><p>The dataset formatted in accordance with the CF-1.8 convention for NetCDF files using <code class="xref py py-meth docutils literal notranslate"><span class="pre">ceilopy.ceilolab.CeilometerData.decorate_dataset()</span></code>.</p></li>
+<li><p>It is a known issue that in rare circumstances the timestamp is inconsistent. Whenever the timestamp jumps back in time duplicate timestamps are removed (<code class="xref py py-meth docutils literal notranslate"><span class="pre">ceilopy.ceilolab.CeilometerData.remove_timeinconsitancies()</span></code>). 🚧 These rare occurrences are under investigation.</p></li>
+<li><p>The data is re-indexed along the time coordinate to the nearest full minute, using the closest valid data value from within 1 minute prior to each timestamp. (<code class="xref py py-meth docutils literal notranslate"><span class="pre">ceilopy.ceilolab.CeilometerData.reindex()</span></code>). This action aims to align Timestamp times and policies (timestamp at the end of each 1-minute interval) with SURFRAD data. Originally, Vaisala processes data in 38-second intervals, but level 2 and 3 data show 16-second intervals, suggesting artificial upsampling.</p></li>
+<li><p>Eventually the data is saved to NetCDF. See this <cite>example &lt;./notebooks/cl51_cloud_prod_lev1_v1p3.ipynb&gt;</cite> for the final file structure.</p></li>
+</ol>
+</section>
+<section id="module-ceilopy.products.cl51_cloud_prod_lev1_v1p3">
+<span id="module-overview"></span><h2>Module Overview<a class="headerlink" href="#module-ceilopy.products.cl51_cloud_prod_lev1_v1p3" title="Link to this heading"></a></h2>
+<p>Created on Fri Oct 27 12:09:24 2023</p>
+<p>&#64;author: hagen</p>
+<dl class="py class">
+<dt class="sig sig-object py" id="ceilopy.products.cl51_cloud_prod_lev1_v1p3.Cl51CloudProdProcessor_v1p3">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">ceilopy.products.cl51_cloud_prod_lev1_v1p3.</span></span><span class="sig-name descname"><span class="pre">Cl51CloudProdProcessor_v1p3</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">p2fl_in</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'/nfs/grad/Inst/Ceil/SURFRAD/'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">p2fl_out</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'/nfs/iftp/aftp/g-rad/surfrad/ceilometer/cl51_cloud_prod_lev1_{version}'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">p2fl_quicklooks</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">hist_file_format</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'*_CEILOMETER_1_LEVEL_3*.his'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ignore</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">[]</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">reporter</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">verbose</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#ceilopy.products.cl51_cloud_prod_lev1_v1p3.Cl51CloudProdProcessor_v1p3" title="Link to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<dl class="py method">
+<dt class="sig sig-object py" id="ceilopy.products.cl51_cloud_prod_lev1_v1p3.Cl51CloudProdProcessor_v1p3.get_single_day_from_worplan">
+<span class="sig-name descname"><span class="pre">get_single_day_from_worplan</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">index</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">-1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">random</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#ceilopy.products.cl51_cloud_prod_lev1_v1p3.Cl51CloudProdProcessor_v1p3.get_single_day_from_worplan" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="ceilopy.products.cl51_cloud_prod_lev1_v1p3.Cl51CloudProdProcessor_v1p3.notify">
+<span class="sig-name descname"><span class="pre">notify</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">subject</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'cl51cloudprod</span> <span class="pre">-</span> <span class="pre">status:</span> <span class="pre">{status}</span> <span class="pre">(clean:</span> <span class="pre">{no_of_files_processed};</span> <span class="pre">errors:</span> <span class="pre">{no_of_errors})'</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#ceilopy.products.cl51_cloud_prod_lev1_v1p3.Cl51CloudProdProcessor_v1p3.notify" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="ceilopy.products.cl51_cloud_prod_lev1_v1p3.Cl51CloudProdProcessor_v1p3.process">
+<span class="sig-name descname"><span class="pre">process</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">test</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">path2fn_out</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">generate_missing_folders</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">error_handling</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'raise'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">error_handling_serial</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'raise'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">error_handling_missing_level3</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'raise'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">verbose</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">complevel</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">4</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#ceilopy.products.cl51_cloud_prod_lev1_v1p3.Cl51CloudProdProcessor_v1p3.process" title="Link to this definition"></a></dt>
+<dd><p>Processes the workplan</p>
+<section id="parameters">
+<h3>Parameters<a class="headerlink" href="#parameters" title="Link to this heading"></a></h3>
+<dl class="simple">
+<dt>test<span class="classifier">[bool, int], optional</span></dt><dd><dl class="simple">
+<dt>Creats several test scenarios:</dt><dd><p>1: returns firt product dataset, stops processing afterwards
+2: as 1 but saves dataset</p>
+</dd>
+</dl>
+</dd>
+<dt>path2fn_out: str, optional, default is None</dt><dd><p>For testing. Excecute only files for this particular output path.</p>
+</dd>
+<dt>error_handling: str, optional, default is ‘return’</dt><dd><p>What to do if an error accures during processing of single 
+retrieval.
+‘raise’: will raise the error
+‘return’: will not raise an errorj, but will return it. Check ‘errors’ key of return dict.</p>
+</dd>
+</dl>
+</section>
+<section id="returns">
+<h3>Returns<a class="headerlink" href="#returns" title="Link to this heading"></a></h3>
+<dl class="simple">
+<dt>ds<span class="classifier">TYPE</span></dt><dd><p>DESCRIPTION.</p>
+</dd>
+</dl>
+</section>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="ceilopy.products.cl51_cloud_prod_lev1_v1p3.Cl51CloudProdProcessor_v1p3.workplan">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">workplan</span></span><a class="headerlink" href="#ceilopy.products.cl51_cloud_prod_lev1_v1p3.Cl51CloudProdProcessor_v1p3.workplan" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="ceilopy.products.cl51_cloud_prod_lev1_v1p3.Cl51CloudProdRetriever_v1p3">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">ceilopy.products.cl51_cloud_prod_lev1_v1p3.</span></span><span class="sig-name descname"><span class="pre">Cl51CloudProdRetriever_v1p3</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">poutg</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">version</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">reporter</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#ceilopy.products.cl51_cloud_prod_lev1_v1p3.Cl51CloudProdRetriever_v1p3" title="Link to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<dl class="py property">
+<dt class="sig sig-object py" id="ceilopy.products.cl51_cloud_prod_lev1_v1p3.Cl51CloudProdRetriever_v1p3.product_dataset">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">product_dataset</span></span><a class="headerlink" href="#ceilopy.products.cl51_cloud_prod_lev1_v1p3.Cl51CloudProdRetriever_v1p3.product_dataset" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+</section>
 </section>
 
 
            </div>
           </div>
-          <footer>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="products.html" class="btn btn-neutral float-left" title="Products" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+    </div>
 
   <hr/>
 
