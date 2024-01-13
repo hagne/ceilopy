@@ -51,63 +51,7 @@ class Cl51CloudProdRetriever_v1p3():
 #         self.p2fnout = poutg.path2fn_out.unique()[0]
         self._product_dataset = None
         self.reporter = reporter
-        # self.get_serial_numbers()
-        # if check_serial:
-        #     self.check_serial()
-        
-    # def get_serial_numbers(self):
-    #     def get_serial(row):
-    #         # Extract serial numbers from files
-    #         key = row.file_type
-    #         file = row.path2raw
-    #         if key in ['L1', 'L2', 'bl']:
-    #             serial = file.name[-11:-3]  # Extract serial number from L1 filename.
-    #         # elif key == 'L3':
-    #         #     serial = files['L3'][-11:-3]
-    #         elif key in ['H2','H3','hist']:
-    #             h = _pd.read_csv(file, skiprows=1, header=0, sep=',')
-    #             serial = h[' CEILOMETER'][0].strip() # Extract serial number from H2 file.
-    #         else:
-    #             raise KeyError('File type unknown')
-    #         return serial
-        
-    #     self.poutg['sn'] = self.poutg.apply(get_serial, axis = 1)
-        
-    # def check_serial(self, error_handling = 'raise'):
-    #     """
-    #     Currently not used anyChecks if the serial numbers in all the files are the same. In early 
-    #     measurments the serial number was not stored ... use error_handling to
-    #     deal with occuring errors.
 
-    #     Parameters
-    #     ----------
-    #     error_handling : str, optional
-    #         How to deal with errors. The default is 'raise'.
-    #         raise: raises occuring errors
-    #         allow_empty: do not raise an error if serial number is not available
-
-    #     Raises
-    #     ------
-    #     KeyError
-    #         DESCRIPTION.
-
-    #     Returns
-    #     -------
-    #     serial : TYPE
-    #         DESCRIPTION.
-
-    #     """
-    #     sn_series = self.poutg['sn'].copy()
-    #     # self.poutg['sn'] = sn_series.copy()
-    #     valid = ['raise', 'allow_empty']
-    #     assert(error_handling in valid), f'error_handling got an unexpected value ({error_handling}. Choose from: {valid})'
-    #     if error_handling == 'allow_empty':
-    #         sn_series = sn_series[sn_series.apply(lambda x: len(x)) != 0]
-    #     if sn_series.unique().shape[0] != 1:
-    #         if len(sn_series[sn_series.apply(lambda x: len(x)) != 0]) != len(sn_series):
-    #             fnj = '\n\t'.join([fn.as_posix() for fn in self.poutg.path2raw])
-    #             raise MissingSerialNumberError(f'At least one of the following files is missing a serial number:\n\t{fnj}')
-    #         raise SerialNumberMissmatchError(f'Serial numbers ({sn_series.unique()}) do not match')
         
     @property
     def product_dataset(self):
@@ -145,7 +89,8 @@ class Cl51CloudProdRetriever_v1p3():
                 else:
                     raise
                 
-                if not isinstance(self.reporter, type(None)): self.reporter.warnings_increment()
+                if not isinstance(self.reporter, type(None)): 
+                    self.reporter.warnings_increment()
                 
                 dsl = []
                 input_files = []
@@ -181,81 +126,6 @@ class Cl51CloudProdRetriever_v1p3():
                 
             ds = ds.reindex()
             
-            
-            
-            
-            
-#             ds = read_L1(poutg[poutg.file_type == 'bl'].path2raw, parent = self,
-#                          ignore1=['name', 'message_type', 'version', 'date_stamp', 'period', 'tilt_angle', 'status_bits', 'profile_scale', 'profile_resolution', 'profile_length'])
-
-            
-#             dsr = _xr.Dataset()
-#             dsr['backscatter_profile']=ds.rcs_910.astype(_np.float32)
-            
-#             dsr.backscatter_profile.attrs = {'long_name':'2-D ceilometer signal backscatter profile.',
-#                                              'units':'10e-9 m^-1 sr^-1',
-#                                              'comments':'Range-corrected-scattering'}
-            
-#             dsr['cloud_status'] = ds.cloud_status.isel(cloud_statusDim = 0).astype(_np.float32)
-            
-#             dsr.cloud_status.attrs = {'long_name':'Cloud detection status.',
-#                                               'units':'1',
-#                                               'flag_values':'0,1,2,3,4',
-#                                               'flag_0':'No significant backscatter.',
-#                                               'flag_1':'One cloud layer detected.',
-#                                               'flag_2':'Two cloud layers detected.',
-#                                               'flag_3':'Three cloud layers detected.',
-#                                               'flag_4':'''Full obscuration/vertical visibility mode. First cloud_base will report vertical visibility and second cloud_base will report highest signal''',
-#                                               'comments':'''When cloud_status=4 there is an optically thick cloud that obscures the signal. Therefore it is not possible to discern additional cloud layers above it so the vertical visibility and highest signal are reported instead.'''}
-            
-#             dst = ds.cloud_data.rename({'cloud_dataDim': 'cloud_layer'})
-#             dst = dst.assign_coords(cloud_layer = _np.int8(dst.cloud_layer + 1))
-#             dst = dst.where(dst > 0) #for The L1 it looks like 0 is invalid
-#             dsr['cloud_data'] = dst.astype(_np.float32)
-            
-#             dsr.cloud_data.attrs = {'long_name':'Cloud base heights.',
-#                                             'units':'m',
-#                                             'comments':'''A 2D array containing all three cloud bases at each timestep. -999 if no significant signal.''',
-#                                             'cloud_base_1':'''First cloud base height or vertical visibility if cloud_status=4''',
-#                                             'cloud_base_2':'''Second cloud base height or highest received signal if cloud_status=4''',
-#                                             'cloud_base_3':'Third cloud base height'}
-            
-#             dsr.attrs = {'title':'Ceilometer cloud product',
-#                          'version':self.version,
-#                          'institution':'NOAA/GML/GRAD',
-#                          'author':'hagen.telg@noaa.gov',
-#                          'source':'Vaisala CL51 ceilometer',
-#                          'serial_number': poutg.sn.unique()[0],
-#                          'input_files': ', '.join([fn.name for fn in poutg.path2raw]),
-#                          'Conventions':'CF-1.8',
-#                          'comments':''' The "time" coordinate was re-indexed to the full minute by back-filling the nearest 
-# valid data value within the following minute.The data values have not undergone any processing other than what the Vaisala 
-# software has applied. In addition, no QC has been applied other than a visual inspection for impossible values or obvious errors.'''.replace('\n','')
-#                          }
-            
-#             #### attributes of the coordinates
-#             dsr.cloud_layer.attrs = dict(long_name = "Cloud layer index",
-#                                         units = "1" ,
-#                                         axis = "Z" ,
-#                                         positive = "up",)
-
-#             dsr.range.attrs = {'long_name': 'distance from ground',
-#                                'units': 'm',
-#                                'standard_name' : 'distance',
-#                                'axis' : 'Z',
-#                                'positive': 'up'}
-#             #### reindex on 1min data and fill any gaps with nan ... every minute of the day has a timestamp!
-#             time = dsr.time.to_pandas()
-#             start = time.iloc[0].date()
-#             end = start + _pd.to_timedelta(1, 'd')
-#             newtime = _pd.date_range(start = start, end = end, freq = _pd.to_timedelta(1, 'minute'), inclusive = 'left')
-            
-#             assert(time.iloc[0].date() == time.iloc[-1].date()), f'Fist and last timestamp are not on the same date!! {time.iloc[0].date()} vs {time.iloc[-1].date()}'
-#             dsr['instrumen_reported_time'] = dsr.time.copy() #this ensures we still have the original timestamp for each value
-#             dsr.instrumen_reported_time.attrs = {'long_name': "Instrument reported time",
-#                                                  'comments': 'Timestamp that was reported by the instrument. The "time" coordinate was re-indexed to the full minute (see global comments).'}
-#             dsr = dsr.reindex(time = newtime, method = 'bfill', tolerance = '1min')
-            
             self._product_dataset = ds
                         
             
@@ -269,7 +139,7 @@ class Cl51CloudProdProcessor_v1p3(object):
                 # file_type = 'bl',
                  # version = '0',
                  hist_file_format = '*_CEILOMETER_1_LEVEL_3*.his',
-                  ignore = [],
+                 ignore = [],
                  # create_quicklooks = False,
                  reporter = None,
                  verbose = False,
@@ -302,7 +172,7 @@ class Cl51CloudProdProcessor_v1p3(object):
         Cl51CloudProdProcessor instance.
 
         """
-        self.version = '1.3.1'
+        self.version = '1.3.2'
         self.reporter = reporter
         self.p2fl_out = _pl.Path(p2fl_out.format(version = self.version))
         self.p2fl_quicklooks = _pl.Path(p2fl_quicklooks.format(version = self.version))
@@ -441,8 +311,7 @@ class Cl51CloudProdProcessor_v1p3(object):
             What to do if an error accures during processing of single 
             retrieval.
             'raise': will raise the error
-            'return': will not raise an errorj, but will return it. Check 
-                'errors' key of return dict.
+            'return': will not raise an errorj, but will return it. Check 'errors' key of return dict.
             
 
         Returns
@@ -471,6 +340,8 @@ class Cl51CloudProdProcessor_v1p3(object):
         for p2fnout, poutg in self.workplan.groupby('path2fn_out', sort = False): 
             if verbose:
                 print(f'\t path2fn_out: {p2fnout} - {poutg}')
+                
+            # forgot why this is needed, should never happen
             if not isinstance(path2fn_out, type(None)):
                 if p2fnout != _pl.Path(path2fn_out):
                     continue
