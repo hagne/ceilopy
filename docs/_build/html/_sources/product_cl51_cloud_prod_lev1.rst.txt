@@ -5,26 +5,11 @@ cl51_cloud_prod_lev1
 
     This is the documentation for the product version 1.3.2. Check the :doc:`changelog <./cl51_cloud_prod_lev1_changlog>` for changes.
     
-    
-   
-
-
-.. Examples
-    ========
-    .. toctree::
-       :maxdepth: 0
-       
-       notebooks/cl51_cloud_prod_lev1_v1p3.ipynb
 
 This cl51_cloud_prod_lev1 product unifies and reformats data from the Vaisala CL51 ceiliometer. Despite seeming straightforward, this process is complex because of the data's peculiar storage and scarce documentation. This page details the strategies used for data unification and reformatting.  
 
 .. note::
     For an example of how to use the product see this `example <./notebooks/cl51_cloud_prod_lev1_v1p3.ipynb>`_ or explore this :mod:`ceilopy.products.production`.
-
-.. shows the script
-    .. literalinclude:: ../ceilopy/products/production.py
-       :language: python
-       :linenos:
 
 Strategy
 --------

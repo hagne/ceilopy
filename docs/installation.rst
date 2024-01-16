@@ -8,7 +8,7 @@ e.g. with conda:
 
 .. code-block:: bash
 
-    conda -c conda-forge xarray magic matplotlib
+    conda -c conda-forge xarray python-magic matplotlib
 
 Install from github
 -------------------

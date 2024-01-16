@@ -248,7 +248,7 @@ class CeilometerData(object):
             # a.text(0.1,0.9, f'Site: {site}',transform = a.transAxes)
             a.set_yscale('log')
             a.set_ylim(bottom = 2e2)
-            a.xaxis.set_ticks([])
+            # a.xaxis.set_ticks([]) # This statement cased an error, not sure why
         
         a = aa[2]
         out = ds.cloud_data.plot.line(x = 'time', ls = '', marker = '_', ax = a)

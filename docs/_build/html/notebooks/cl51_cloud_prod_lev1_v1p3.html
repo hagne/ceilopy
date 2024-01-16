@@ -82,11 +82,11 @@
   <section id="imports">
 <h1>imports<a class="headerlink" href="#imports" title="Link to this heading"></a></h1>
 <div class="nbinput nblast docutils container">
-<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[ ]:
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[1]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>import ceilopy.ceilolab as cp
-import ceilopy.products.cl51_cloud_prod_lev1_v1p3 as cl51l1v1p3
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">ceilopy.ceilolab</span> <span class="k">as</span> <span class="nn">cp</span>
+<span class="kn">import</span> <span class="nn">ceilopy.products.cl51_cloud_prod_lev1_v1p3</span> <span class="k">as</span> <span class="nn">cl51l1v1p3</span>
 </pre></div>
 </div>
 </div>
@@ -94,40 +94,48 @@ import ceilopy.products.cl51_cloud_prod_lev1_v1p3 as cl51l1v1p3
 <section id="optional-...-use-a-reporter">
 <h1>optional … use a reporter<a class="headerlink" href="#optional-...-use-a-reporter" title="Link to this heading"></a></h1>
 <div class="nbinput nblast docutils container">
-<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[5]:
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[2]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>import productomator.lab as prolab
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">productomator.lab</span> <span class="k">as</span> <span class="nn">prolab</span>
 </pre></div>
 </div>
 </div>
-<div class="nbinput nblast docutils container">
-<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[91]:
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[3]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>reporter = prolab.Reporter(&#39;Cl51CloudProd&#39;,
-                           # log_folder=&#39;/export/htelg/tmp/&#39;,
-                           reporting_frequency=(6,&#39;h&#39;))
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">reporter</span> <span class="o">=</span> <span class="n">prolab</span><span class="o">.</span><span class="n">Reporter</span><span class="p">(</span><span class="s1">&#39;Cl51CloudProd&#39;</span><span class="p">,</span>
+                           <span class="c1"># log_folder=&#39;/export/htelg/tmp/&#39;,</span>
+                           <span class="n">reporting_frequency</span><span class="o">=</span><span class="p">(</span><span class="mi">6</span><span class="p">,</span><span class="s1">&#39;h&#39;</span><span class="p">))</span>
 </pre></div>
 </div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area docutils container">
+<div class="highlight"><pre>
+start time: 2024-01-12 15:08:35.392002
+</pre></div></div>
 </div>
 </section>
 <section id="generate-the-instance-that-takes-care-of-processing-everything">
 <h1>generate the instance that takes care of processing everything<a class="headerlink" href="#generate-the-instance-that-takes-care-of-processing-everything" title="Link to this heading"></a></h1>
 <div class="nbinput nblast docutils container">
-<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[ ]:
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[4]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>p2fl_in = &#39;/nfs/grad/Inst/Ceil/SURFRAD/&#39;
-p2fl_out = &#39;/nfs/grad/surfrad/ceilometer/cl51_cloud_prod_lev1/v{version}&#39;
-p2fl_quicklooks = &#39;/nfs/grad/surfrad/quicklooks/ceilometer/cl51_cloud_prod_lev1/v{version}&#39;
-cpp = cl51l1v1p3.Cl51CloudProdProcessor_v1p3(
-    ignore=[&#39;plots&#39;],
-    p2fl_in=p2fl_in,
-    p2fl_out=p2fl_out,
-    p2fl_quicklooks=p2fl_quicklooks,  # comment out if not desired
-    reporter=reporter,  # comment out if not desired
-)
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">p2fl_in</span> <span class="o">=</span> <span class="s1">&#39;/nfs/grad/Inst/Ceil/SURFRAD/&#39;</span>
+<span class="n">p2fl_out</span> <span class="o">=</span> <span class="s1">&#39;/nfs/grad/surfrad/ceilometer/cl51_cloud_prod_lev1/v</span><span class="si">{version}</span><span class="s1">&#39;</span>
+<span class="n">p2fl_quicklooks</span> <span class="o">=</span> <span class="s1">&#39;/nfs/grad/surfrad/quicklooks/ceilometer/cl51_cloud_prod_lev1/v</span><span class="si">{version}</span><span class="s1">&#39;</span>
+<span class="n">cpp</span> <span class="o">=</span> <span class="n">cl51l1v1p3</span><span class="o">.</span><span class="n">Cl51CloudProdProcessor_v1p3</span><span class="p">(</span>
+    <span class="n">ignore</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;plots&#39;</span><span class="p">],</span>
+    <span class="n">p2fl_in</span><span class="o">=</span><span class="n">p2fl_in</span><span class="p">,</span>
+    <span class="n">p2fl_out</span><span class="o">=</span><span class="n">p2fl_out</span><span class="p">,</span>
+    <span class="n">p2fl_quicklooks</span><span class="o">=</span><span class="n">p2fl_quicklooks</span><span class="p">,</span>  <span class="c1"># comment out if not desired</span>
+    <span class="n">reporter</span><span class="o">=</span><span class="n">reporter</span><span class="p">,</span>  <span class="c1"># comment out if not desired</span>
+<span class="p">)</span>
 </pre></div>
 </div>
 </div>
@@ -136,15 +144,57 @@ cpp = cl51l1v1p3.Cl51CloudProdProcessor_v1p3(
 <h1>the workplan<a class="headerlink" href="#the-workplan" title="Link to this heading"></a></h1>
 <p>The workplan shows all the files that need processing. It generates the path to all output files based on all input files. When output files exist the line is removed from the workplan. If you want you can change the workplan, e.g. like this:</p>
 <div class="nbinput nblast docutils container">
-<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[100]:
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[5]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>cpp.workplan = cpp.workplan.truncate(
-    &#39;2019-01-01&#39;,
-    pd.Timestamp.now() - pd.to_timedelta(12, &#39;d&#39;)
-)
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">cpp</span><span class="o">.</span><span class="n">workplan</span> <span class="o">=</span> <span class="n">cpp</span><span class="o">.</span><span class="n">workplan</span><span class="o">.</span><span class="n">truncate</span><span class="p">(</span>
+    <span class="s1">&#39;2019-01-01&#39;</span><span class="p">,</span>
+    <span class="n">pd</span><span class="o">.</span><span class="n">Timestamp</span><span class="o">.</span><span class="n">now</span><span class="p">()</span> <span class="o">-</span> <span class="n">pd</span><span class="o">.</span><span class="n">to_timedelta</span><span class="p">(</span><span class="mi">12</span><span class="p">,</span> <span class="s1">&#39;d&#39;</span><span class="p">)</span>
+<span class="p">)</span>
 </pre></div>
 </div>
+</div>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[7]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">cpp</span><span class="o">.</span><span class="n">workplan</span><span class="o">.</span><span class="n">iloc</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+</pre></div>
+</div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[7]:
+</pre></div>
+</div>
+<div class="output_area docutils container">
+<div class="highlight"><pre>
+path2raw           /nfs/grad/Inst/Ceil/SURFRAD/TBL/bl/L2_06610_20...
+site                                                             tbl
+date                                             2019-01-01 00:00:00
+path2fn_out        /nfs/grad/surfrad/ceilometer/cl51_cloud_prod_l...
+path2quicklooks    /nfs/grad/surfrad/quicklooks/ceilometer/cl51_c...
+serial_no                                               201901010000
+path2althist_l2    /nfs/grad/Inst/Ceil/SURFRAD/TBL/hist/201901_CE...
+path2althist_l3    /nfs/grad/Inst/Ceil/SURFRAD/TBL/hist/201901_CE...
+Name: 2019-01-01 00:00:00, dtype: object
+</pre></div></div>
+</div>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[11]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">cpp</span><span class="o">.</span><span class="n">workplan</span><span class="o">.</span><span class="n">iloc</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">path2althist_l3</span>
+</pre></div>
+</div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[11]:
+</pre></div>
+</div>
+<div class="output_area docutils container">
+<div class="highlight"><pre>
+PosixPath(&#39;/nfs/grad/Inst/Ceil/SURFRAD/TBL/hist/201901_CEILOMETER_1_LEVEL_3_DEFAULT_01.his&#39;)
+</pre></div></div>
 </div>
 </section>
 <section id="process">
@@ -153,7 +203,7 @@ cpp = cl51l1v1p3.Cl51CloudProdProcessor_v1p3(
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[ ]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>the process method will...
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">the</span> <span class="n">process</span> <span class="n">method</span> <span class="n">will</span><span class="o">...</span>
 </pre></div>
 </div>
 </div>
@@ -161,10 +211,10 @@ cpp = cl51l1v1p3.Cl51CloudProdProcessor_v1p3(
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[ ]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>out = cpp.process(generate_missing_folders=True,
-              error_handling=&#39;return&#39;,
-              error_handling_missing_level3 = &#39;return&#39;,
-             )
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">out</span> <span class="o">=</span> <span class="n">cpp</span><span class="o">.</span><span class="n">process</span><span class="p">(</span><span class="n">generate_missing_folders</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+              <span class="n">error_handling</span><span class="o">=</span><span class="s1">&#39;return&#39;</span><span class="p">,</span>
+              <span class="n">error_handling_missing_level3</span> <span class="o">=</span> <span class="s1">&#39;return&#39;</span><span class="p">,</span>
+             <span class="p">)</span>
 </pre></div>
 </div>
 </div>
@@ -172,7 +222,7 @@ cpp = cl51l1v1p3.Cl51CloudProdProcessor_v1p3(
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[ ]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>len(out[&#39;errors&#39;])
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="nb">len</span><span class="p">(</span><span class="n">out</span><span class="p">[</span><span class="s1">&#39;errors&#39;</span><span class="p">])</span>
 </pre></div>
 </div>
 </div>
@@ -180,7 +230,7 @@ cpp = cl51l1v1p3.Cl51CloudProdProcessor_v1p3(
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[88]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>len(out[&#39;errors&#39;])
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="nb">len</span><span class="p">(</span><span class="n">out</span><span class="p">[</span><span class="s1">&#39;errors&#39;</span><span class="p">])</span>
 </pre></div>
 </div>
 </div>
@@ -197,7 +247,7 @@ cpp = cl51l1v1p3.Cl51CloudProdProcessor_v1p3(
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[55]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>&#39;hist level 3 file does not exist.&#39; in e.args[0]
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="s1">&#39;hist level 3 file does not exist.&#39;</span> <span class="ow">in</span> <span class="n">e</span><span class="o">.</span><span class="n">args</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
 </pre></div>
 </div>
 </div>
