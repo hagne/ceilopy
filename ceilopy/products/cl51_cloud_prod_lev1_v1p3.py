@@ -434,7 +434,8 @@ class Cl51CloudProdProcessor_v1p3(object):
                 
             if test == 2:
                 break
-            if not isinstance(self.reporter, type(None)): self.reporter.log()
+            if not isinstance(self.reporter, type(None)): 
+                self.reporter.log()
             
             
         
@@ -444,7 +445,8 @@ class Cl51CloudProdProcessor_v1p3(object):
         out['no_of_files_processed'] = no_processed
         out['finish_time'] = _pd.Timestamp(_dt.datetime.now())
         self._last_processing = out
-        if not isinstance(self.reporter, type(None)): self.reporter.log(overwrite_reporting_frequency=True)
+        # if not isinstance(self.reporter, type(None)): 
+        #     self.reporter.log(overwrite_reporting_frequency=True)
         return out
     
     def get_single_day_from_worplan(self, index = -1, random = False):

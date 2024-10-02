@@ -27,6 +27,8 @@ write_to = "_version.py"  # Path to write the version file
 
 [project.scripts]
 ceilometerproduction = "ceilopy.products.production:run"
+ceil_surfrad = "ceilopy.products.production:surfrad"
+ceil_wfip3 = "ceilopy.products.production:wfip3"
 
 #[tool.setuptools.entry_points]
 #console_scripts =

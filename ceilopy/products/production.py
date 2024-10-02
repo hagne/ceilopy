@@ -23,11 +23,12 @@ def surfrad(start = None, end = None, lastdays = 14, reporter_name = 'Cl51CloudP
     None.
 
     """
+    print('catchup')
     # print(pd.Timestamp.now())
     # print(f'Starting {reporter_name} production.')
     reporter = prolab.Reporter(reporter_name, 
                                # log_folder='/export/htelg/tmp/', 
-                               reporting_frequency=(1,'h'))
+                               reporting_frequency=(3,'h'))
 
     p2fl_in = '/nfs/grad/Inst/Ceil/SURFRAD/' #'/nfs/grad/gradobs/raw/short_term/sailsplash/Ceil/'
     p2fl_out = '/nfs/grad/surfrad/ceilometer/cl51_cloud_prod_lev1/v{version}'# '/nfs/grad/gradobs/scaled/short_term/sailsplash/ceilometer/cl51_cloud_prod_lev1_v{version}/'
@@ -50,7 +51,7 @@ def surfrad(start = None, end = None, lastdays = 14, reporter_name = 'Cl51CloudP
     cpp.workplan = cpp.workplan.truncate(*trunc)
 
     print(f'Number of files to be processed: {cpp.workplan.shape[0]}')
-    # cpp.workplan = cpp.workplan.sample(frac=1)
+    cpp.workplan = cpp.workplan.sample(frac=1)
     cpp.process(generate_missing_folders=True,
                 error_handling='return',
                 error_handling_missing_level3='return',
@@ -60,7 +61,7 @@ def surfrad(start = None, end = None, lastdays = 14, reporter_name = 'Cl51CloudP
     #### do the rsync
     # Define the source and destination for rsync
     source = cpp.p2fl_out
-    destination = f'/nfs/iftp/aftp/g-rad/surfrad/ceilometer/cl51_cloud_prod_lev1/v{cpp.version}'
+    destination = f'/nfs/iftp/aftp/g-rad/surfrad/ceilometer/cl51_cloud_prod_lev1/'
 
     # Construct the rsync command
     rsync_command = ["rsync", "-av", source, destination]
@@ -77,7 +78,7 @@ def surfrad(start = None, end = None, lastdays = 14, reporter_name = 'Cl51CloudP
         # print(f"Rsync command failed with exit code {e.returncode}")
         # print(e.stderr.decode())
         reporter.errors_increment(20)
-        reporter.wrapup()
+        # reporter.wrapup()
         raise
 
     # print(f'clean: {reporter.clean}')
@@ -87,8 +88,6 @@ def surfrad(start = None, end = None, lastdays = 14, reporter_name = 'Cl51CloudP
     reporter.wrapup()
     print('====================================================')
     return
-
-
 
 def wfip3(start = None, end = None, lastdays = 14, reporter_name = 'Cl51CloudProd_wfip3'):
     """
@@ -101,14 +100,16 @@ def wfip3(start = None, end = None, lastdays = 14, reporter_name = 'Cl51CloudPro
 
     """
     print(f'Starting {reporter_name} production.')
+    # print(pd.Timestamp.now())
+    # print(f'Starting {reporter_name} production.')
     reporter = prolab.Reporter(reporter_name, 
                                # log_folder='/export/htelg/tmp/', 
-                               reporting_frequency=(1,'h'))
-    
-    # p2fl_in = #'/nfs/grad/Inst/Ceil/SURFRAD/' #'/nfs/grad/gradobs/raw/short_term/sailsplash/Ceil/'
-    # p2fl_out = #'/nfs/grad/surfrad/ceilometer/cl51_cloud_prod_lev1/v{version}'# '/nfs/grad/gradobs/scaled/short_term/sailsplash/ceilometer/cl51_cloud_prod_lev1_v{version}/'
-    # p2fl_quicklooks = #'/nfs/grad/surfrad/quicklooks/ceilometer/cl51_cloud_prod_lev1/v{version}'
-    
+                               reporting_frequency=(3,'h'))
+
+    p2fl_in = '/nfs/grad/gradobs/raw/short_term/wfip3/Ceil/' #'/nfs/grad/gradobs/raw/short_term/sailsplash/Ceil/'
+    p2fl_out = '/nfs/grad/gradobs/scaled/short_term/wfip3/Ceil/cl51_cloud_prod_lev1/v{version}'# '/nfs/grad/gradobs/scaled/short_term/sailsplash/ceilometer/cl51_cloud_prod_lev1_v{version}/'
+    p2fl_quicklooks = '/nfs/grad/gradobs/quicklooks/short_term/wfip3/Ceil/cl51_cloud_prod_lev1/v{version}' #
+
     cpp = cl51l1v1p3.Cl51CloudProdProcessor_v1p3(ignore=['plots'], 
                                     # version = version,
                                     # verbose=True,
@@ -119,51 +120,31 @@ def wfip3(start = None, end = None, lastdays = 14, reporter_name = 'Cl51CloudPro
                                     )
     #trunc = '2020-01-01'
     if not isinstance(lastdays, type(None)):
-        trunc = (pd.Timestamp.now() - pd.to_timedelta(lastdays, 'd'), None)
-    else:
-        trunc = (start, end)
-    cpp.workplan = cpp.workplan.truncate(*trunc)
+        start = pd.Timestamp.now() - pd.to_timedelta(lastdays, 'd')
     
+    trunc = (start, end)
+    print(f"processing between from {start} to {end}")
+    cpp.workplan = cpp.workplan.truncate(*trunc)
+
     print(f'Number of files to be processed: {cpp.workplan.shape[0]}')
     cpp.workplan = cpp.workplan.sample(frac=1)
-    cpp.process(generate_missing_folders=True, 
-                      error_handling='return',
-                      error_handling_missing_level3 = 'return',
-                      # test=1
-                     )
-    
-    #### do the rsync
-    # Define the source and destination for rsync
-    if 0:
-        source = cpp.p2fl_out
-        destination = f'/nfs/iftp/aftp/g-rad/surfrad/ceilometer/cl51_cloud_prod_lev1/v{cpp.version}'
-        
-        # Construct the rsync command
-        rsync_command = ["rsync", "-av", source, destination]
-        
-        # Execute the rsync command
-        try:
-            # result = 
-            subprocess.run(rsync_command, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-            # Output the result
-            # print("STDOUT:", result.stdout.decode())
-            # print("STDERR:", result.stderr.decode())
-        except subprocess.CalledProcessError as e:
-            # print(f"Rsync command failed with exit code {e.returncode}")
-            # print(e.stderr.decode())
-            reporter.errors_increment(20)
-            reporter.log(overwrite_reporting_frequency=True)
-            
-            raise
-    print('\ndone!')
-    print(f'clean: {reporter.clean}')
-    print(f'warnings: {reporter.warnings}')
-    print(f'errors: {reporter.errors}')
+    cpp.process(generate_missing_folders=True,
+                error_handling='return',
+                error_handling_missing_level3='return',
+                # test=1
+                )
+    print('finished processing')
+    reporter.wrapup()
+    print('====================================================')
+    return
+
 
 
 def run():
     surfrad()
+    wfip3()
 
 
 if __name__ == '__main__':
     surfrad(start=None, end='2023-12-08', lastdays=None, reporter_name = 'Cl51CloudProd_surfrad_catchup')
+    #wfip3(lastdays = None)
